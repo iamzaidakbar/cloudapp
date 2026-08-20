@@ -1,0 +1,51 @@
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/auth/session";
+import { verifyPassword } from "@/lib/auth/password";
+import { loginSchema } from "@/lib/validation/auth";
+import { apiError, apiSuccess } from "@/lib/api/response";
+
+export async function POST(request: NextRequest) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError("Invalid request body", 400);
+  }
+
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError("Invalid input", 400, parsed.error.flatten().fieldErrors);
+  }
+
+  const { email, password } = parsed.data;
+
+  try {
+    const admin = await prisma.admin.findUnique({ where: { email } });
+    if (!admin) {
+      return apiError("Invalid email or password", 401);
+    }
+
+    const isValid = await verifyPassword(password, admin.passwordHash);
+    if (!isValid) {
+      return apiError("Invalid email or password", 401);
+    }
+
+    const session = await getSession();
+    session.adminId = admin.id;
+    session.email = admin.email;
+    await session.save();
+
+    await prisma.admin.update({
+      where: { id: admin.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return apiSuccess({
+      admin: { id: admin.id, email: admin.email, name: admin.name },
+    });
+  } catch (error) {
+    console.error("Login failed:", error);
+    return apiError("Something went wrong. Please try again.", 500);
+  }
+}
