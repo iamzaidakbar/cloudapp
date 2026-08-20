@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Ubuntu, Ubuntu_Mono } from "next/font/google";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const ubuntu = Ubuntu({
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`dark ${ubuntu.variable} ${ubuntuMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        <TooltipProvider>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }

@@ -39,6 +39,7 @@ model Tenant {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   awsConnection AwsConnection?
+  auditRuns     AuditRun[]
 
   @@map("tenants")
 }
@@ -61,4 +62,157 @@ model AwsConnection {
   updatedAt DateTime @updatedAt
 
   @@map("aws_connections")
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum ServiceCollectionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum FindingSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum FindingType {
+  PUBLIC_S3_BUCKET
+  UNENCRYPTED_EBS_VOLUME
+  UNATTACHED_EBS_VOLUME
+  UNDERUTILIZED_EC2_INSTANCE
+  OVER_PROVISIONED_EC2_INSTANCE
+  MISSING_TAGS
+}
+
+enum AwsServiceType {
+  EC2_INSTANCE
+  EBS_VOLUME
+  SECURITY_GROUP
+  VPC
+  S3_BUCKET
+  RDS_INSTANCE
+  LAMBDA_FUNCTION
+  ELB_LOAD_BALANCER
+  IAM_ROLE
+  CLOUDWATCH_LOG_GROUP
+}
+
+// Each AuditRun is a full point-in-time snapshot — every run inserts a fresh,
+// complete set of AuditResource/AuditFinding rows rather than upserting a
+// single "current state" table. Comparing historical runs is just reading two
+// independent snapshots; no dedup/SCD logic needed. No generic Job table
+// exists yet — status/progress live directly here since this is the only
+// job-producing feature so far (revisit if Migrations/Comparisons need one).
+model AuditRun {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  version    Int
+  status     JobStatus          @default(QUEUED)
+  dataSource VerificationSource
+
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+
+  resourceCount        Int?
+  findingCount         Int?
+  criticalFindingCount Int?
+  estimatedMonthlyCost Decimal? @db.Decimal(12, 2)
+
+  costDataAvailable        Boolean @default(false)
+  utilizationDataAvailable Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  serviceStatuses AuditServiceStatus[]
+  resources       AuditResource[]
+  findings        AuditFinding[]
+
+  @@unique([tenantId, version])
+  @@index([tenantId, status])
+  @@map("audit_runs")
+}
+
+model AuditServiceStatus {
+  id         String   @id @default(cuid())
+  tenantId   String
+  auditRunId String
+  auditRun   AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+
+  service       AwsServiceType
+  status        ServiceCollectionStatus @default(PENDING)
+  resourceCount Int                     @default(0)
+  errorMessage  String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  @@unique([auditRunId, service])
+  @@map("audit_service_statuses")
+}
+
+model AuditResource {
+  id         String   @id @default(cuid())
+  tenantId   String
+  auditRunId String
+  auditRun   AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+
+  service     AwsServiceType
+  resourceId  String // ARN or native id (vol-xxxx, i-xxxx, bucket name)
+  name        String?
+  region      String
+  status      String? // AWS-native lifecycle status, free text (varies per service)
+  environment String? // derived from an Environment/env tag if present
+  tags        Json           @default("{}")
+  rawConfig   Json // full describe-* payload
+
+  monthlyCost   Decimal? @db.Decimal(12, 2)
+  costAvailable Boolean  @default(false)
+
+  cpuUtilizationAvgPercent Float? // EC2 only, when CloudWatch succeeds
+
+  createdAt DateTime @default(now())
+
+  findings AuditFinding[]
+
+  @@unique([auditRunId, service, resourceId])
+  @@index([tenantId, service])
+  @@index([tenantId, region])
+  @@map("audit_resources")
+}
+
+model AuditFinding {
+  id         String   @id @default(cuid())
+  tenantId   String
+  auditRunId String
+  auditRun   AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+
+  resourceId String?
+  resource   AuditResource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  type        FindingType
+  severity    FindingSeverity
+  title       String
+  description String
+  remediation String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, severity])
+  @@index([auditRunId])
+  @@map("audit_findings")
 }

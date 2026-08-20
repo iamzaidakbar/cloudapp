@@ -11,3 +11,11 @@ export function formatDateTime(value: Date | string) {
     timeZone: "UTC",
   }).format(date) + " UTC";
 }
+
+// Same fixed-locale reasoning as formatDateTime — Intl.NumberFormat's output
+// can also vary by runtime locale, so this is pinned to en-US/USD regardless
+// of where it renders.
+export function formatCurrency(value: number | string) {
+  const amount = typeof value === "string" ? Number.parseFloat(value) : value;
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+}

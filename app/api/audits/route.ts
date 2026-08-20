@@ -1,0 +1,77 @@
+import { after, NextRequest } from "next/server";
+import { Prisma } from "@/lib/generated/prisma/client";
+import { requireAdmin } from "@/lib/auth/guard";
+import { getTenantWithConnection } from "@/lib/tenant";
+import { reconcileStaleAuditRuns } from "@/lib/aws/audit/reconcile";
+import { createAuditRun, getActiveAuditRun, listAuditRuns } from "@/lib/audits";
+import { runAudit } from "@/lib/aws/audit/run-audit";
+import { isAwsConfigured } from "@/lib/aws/is-configured";
+import { parsePagination, paginationMeta } from "@/lib/api/pagination";
+import { apiError, apiSuccess } from "@/lib/api/response";
+
+export async function POST() {
+  try {
+    await requireAdmin();
+  } catch {
+    return apiError("Unauthorized", 401);
+  }
+
+  try {
+    const { tenant, connection } = await getTenantWithConnection();
+    if (!tenant || !connection) {
+      return apiError("Organization not configured", 404);
+    }
+    if (connection.status !== "CONNECTED" || !connection.roleArn) {
+      return apiError("Connect an AWS account before running an audit", 400);
+    }
+
+    await reconcileStaleAuditRuns(tenant.id);
+
+    const active = await getActiveAuditRun(tenant.id);
+    if (active) {
+      return apiError("An audit is already in progress", 409);
+    }
+
+    const dataSource = isAwsConfigured() ? "AWS" : "DEV_ADAPTER";
+    const auditRun = await createAuditRun(tenant.id, dataSource);
+
+    after(() => runAudit(auditRun.id, tenant.id).catch((error) => console.error("Audit run failed unexpectedly:", error)));
+
+    return apiSuccess({ auditRun }, 202);
+  } catch (error) {
+    // Two near-simultaneous requests can both pass the getActiveAuditRun()
+    // check before either has inserted its row, then race on the
+    // (tenantId, version) unique constraint — treat that exactly like the
+    // normal already-in-progress case rather than a generic failure.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return apiError("An audit is already in progress", 409);
+    }
+    console.error("Starting audit failed:", error);
+    return apiError("Something went wrong. Please try again.", 500);
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdmin();
+  } catch {
+    return apiError("Unauthorized", 401);
+  }
+
+  try {
+    const { tenant } = await getTenantWithConnection();
+    if (!tenant) {
+      return apiSuccess({ items: [], ...paginationMeta(1, 25, 0) });
+    }
+
+    await reconcileStaleAuditRuns(tenant.id);
+
+    const { page, pageSize, skip, take } = parsePagination(request.nextUrl.searchParams);
+    const { items, total } = await listAuditRuns(tenant.id, skip, take);
+
+    return apiSuccess({ items, ...paginationMeta(page, pageSize, total) });
+  } catch (error) {
+    console.error("Listing audits failed:", error);
+    return apiError("Something went wrong. Please try again.", 500);
+  }
+}

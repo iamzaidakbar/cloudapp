@@ -6,9 +6,23 @@ import {
 import { env } from "@/lib/env";
 import { isAwsConfigured } from "@/lib/aws/is-configured";
 
-const region = () => env.AWS_REGION ?? "us-east-1";
+export const region = () => env.AWS_REGION ?? "us-east-1";
 
-export async function verifyWithAws(roleArn: string, externalId: string, sessionName: string) {
+export type AssumedRoleCredentials = {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+  expiration: Date;
+};
+
+// Assumes the tenant's IAM role and returns short-lived credentials. Callers
+// must keep these in a local variable only — never module-level/global,
+// never logged, never persisted to the database.
+export async function assumeTenantRole(
+  roleArn: string,
+  externalId: string,
+  sessionName: string,
+): Promise<AssumedRoleCredentials> {
   const client = new STSClient({ region: region() });
 
   const assumed = await client.send(
@@ -21,16 +35,27 @@ export async function verifyWithAws(roleArn: string, externalId: string, session
   );
 
   const creds = assumed.Credentials;
-  if (!creds?.AccessKeyId || !creds.SecretAccessKey || !creds.SessionToken) {
+  if (!creds?.AccessKeyId || !creds.SecretAccessKey || !creds.SessionToken || !creds.Expiration) {
     throw new Error("AWS did not return usable temporary credentials.");
   }
+
+  return {
+    accessKeyId: creds.AccessKeyId,
+    secretAccessKey: creds.SecretAccessKey,
+    sessionToken: creds.SessionToken,
+    expiration: creds.Expiration,
+  };
+}
+
+export async function verifyWithAws(roleArn: string, externalId: string, sessionName: string) {
+  const creds = await assumeTenantRole(roleArn, externalId, sessionName);
 
   const assumedClient = new STSClient({
     region: region(),
     credentials: {
-      accessKeyId: creds.AccessKeyId,
-      secretAccessKey: creds.SecretAccessKey,
-      sessionToken: creds.SessionToken,
+      accessKeyId: creds.accessKeyId,
+      secretAccessKey: creds.secretAccessKey,
+      sessionToken: creds.sessionToken,
     },
   });
 

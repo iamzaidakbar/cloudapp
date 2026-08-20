@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/auth/session";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/settings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/settings", "/infrastructure", "/audits"];
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/onboarding", "/settings/:path*", "/login"],
+  matcher: [
+    "/dashboard/:path*",
+    "/onboarding",
+    "/settings/:path*",
+    "/infrastructure/:path*",
+    "/audits/:path*",
+    "/login",
+  ],
 };
 
 export async function proxy(request: NextRequest) {

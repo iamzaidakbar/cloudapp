@@ -10,6 +10,7 @@ const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_SESSION_TOKEN: z.string().optional(),
   AWS_REGION: z.string().optional(),
+  AWS_COST_EXPLORER_ENABLED: z.string().optional(),
 });
 
 export const env = envSchema.parse({
@@ -20,4 +21,5 @@ export const env = envSchema.parse({
   AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
   AWS_SESSION_TOKEN: process.env.AWS_SESSION_TOKEN,
   AWS_REGION: process.env.AWS_REGION,
+  AWS_COST_EXPLORER_ENABLED: process.env.AWS_COST_EXPLORER_ENABLED,
 });
