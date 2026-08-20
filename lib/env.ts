@@ -12,6 +12,7 @@ const envSchema = z.object({
   AWS_REGION: z.string().optional(),
   AWS_COST_EXPLORER_ENABLED: z.string().optional(),
   GCP_BILLING_API_KEY: z.string().optional(),
+  GCP_PROJECT_ID: z.string().optional(),
 });
 
 export const env = envSchema.parse({
@@ -24,4 +25,5 @@ export const env = envSchema.parse({
   AWS_REGION: process.env.AWS_REGION,
   AWS_COST_EXPLORER_ENABLED: process.env.AWS_COST_EXPLORER_ENABLED,
   GCP_BILLING_API_KEY: process.env.GCP_BILLING_API_KEY,
+  GCP_PROJECT_ID: process.env.GCP_PROJECT_ID,
 });

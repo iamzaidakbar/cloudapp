@@ -42,6 +42,7 @@ model Tenant {
   auditRuns      AuditRun[]
   comparisonRuns ComparisonRun[]
   migrationPlans MigrationPlan[]
+  terraformRuns  TerraformRun[]
 
   @@map("tenants")
 }
@@ -345,7 +346,8 @@ model MigrationPlan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  resources MigrationResource[]
+  resources     MigrationResource[]
+  terraformRuns TerraformRun[]
 
   @@unique([tenantId, sequenceNumber])
   @@index([tenantId, status])
@@ -373,4 +375,51 @@ model MigrationResource {
   @@unique([migrationPlanId, awsResourceId])
   @@index([tenantId, awsService])
   @@map("migration_resources")
+}
+
+enum TerraformRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// A real `terraform init`/`validate`/`plan` subprocess run against an
+// APPROVED MigrationPlan's generated HCL. Deliberately NOT a generic Job
+// table — same reasoning already documented on AuditRun/ComparisonRun: this
+// is the 3rd job-shaped model, and each one's actual payload (findings vs.
+// cost figures vs. generated HCL/plan text) differs enough that sharing a
+// table would just mean a JSON blob for the type-specific part, losing real
+// columns/FKs for no real gain. `apply`/`destroy` are never invoked by any
+// code that produces or consumes this model — see lib/terraform/cli.ts.
+model TerraformRun {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  migrationPlanId String
+  migrationPlan   MigrationPlan @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  version Int
+  status  TerraformRunStatus @default(QUEUED)
+
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+
+  terraformConfig String
+
+  validateSucceeded Boolean?
+  validateOutput    String?
+
+  planSucceeded     Boolean?
+  planOutput        String?
+  resourcesToCreate Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([migrationPlanId, version])
+  @@index([tenantId, status])
+  @@map("terraform_runs")
 }

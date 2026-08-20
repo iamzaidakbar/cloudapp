@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { getMigrationPlan } from "@/lib/migrations";
+import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { MigrationStatusBadge } from "@/components/migrations/migration-status-badge";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
 import { PlanActions } from "@/components/migrations/plan-actions";
+import { TerraformPanel } from "@/components/migrations/terraform-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -15,6 +17,8 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
 
   const plan = await getMigrationPlan(tenant.id, id);
   if (!plan) notFound();
+
+  const terraformRun = plan.status === "APPROVED" ? await getLatestTerraformRun(tenant.id, id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -60,15 +64,6 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
         </Alert>
       ) : null}
 
-      {plan.status === "APPROVED" ? (
-        <Alert>
-          <AlertDescription>
-            Approved. Terraform generation and execution aren&apos;t available in this build yet — this plan is ready for
-            that once it ships.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {plan.status === "CANCELLED" ? (
         <Alert variant="destructive">
           <AlertDescription>This migration plan was cancelled and can&apos;t be approved or executed.</AlertDescription>
@@ -76,6 +71,10 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
       ) : null}
 
       <MigrationResourcesTable resources={plan.resources} />
+
+      {plan.status === "APPROVED" ? (
+        <TerraformPanel migrationPlanId={plan.id} initialTerraformRun={terraformRun} />
+      ) : null}
     </div>
   );
 }

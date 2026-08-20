@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# Terraform provider plugin cache (lib/terraform/cli.ts) — large downloaded
+# binaries, safe to redownload, never source-controlled.
+/.terraform-plugin-cache/
