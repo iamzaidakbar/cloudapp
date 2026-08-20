@@ -7,7 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+  // The app connects as a restricted, non-superuser role (APP_DATABASE_URL) —
+  // never the Prisma-migration role in DATABASE_URL, which is a Postgres
+  // superuser and would silently bypass row-level security policies.
+  const adapter = new PrismaPg({ connectionString: env.APP_DATABASE_URL });
   return new PrismaClient({ adapter });
 }
 

@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type EmptyStateProps = {
@@ -6,9 +7,10 @@ type EmptyStateProps = {
   title: string;
   description?: string;
   className?: string;
+  children?: ReactNode;
 };
 
-export function EmptyState({ icon: Icon, title, description, className }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, className, children }: EmptyStateProps) {
   return (
     <div
       className={cn(
@@ -21,6 +23,7 @@ export function EmptyState({ icon: Icon, title, description, className }: EmptyS
       {description ? (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       ) : null}
+      {children}
     </div>
   );
 }

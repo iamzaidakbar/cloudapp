@@ -1,0 +1,179 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { EmptyState } from "@/components/empty-state";
+import { ConnectionStatusBadge } from "@/components/aws/connection-status-badge";
+import { ConnectionSummary } from "@/components/aws/connection-summary";
+import { CloudOff } from "lucide-react";
+import type { Tenant, AwsConnection } from "@/lib/generated/prisma/client";
+
+type AwsConnectionPanelProps = {
+  initialTenant: Tenant | null;
+  initialConnection: AwsConnection | null;
+};
+
+export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConnectionPanelProps) {
+  const router = useRouter();
+  const [tenant] = useState(initialTenant);
+  const [connection, setConnection] = useState(initialConnection);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [roleArnInput, setRoleArnInput] = useState(connection?.roleArn ?? "");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  if (!tenant) {
+    return (
+      <EmptyState
+        icon={CloudOff}
+        title="No organization configured"
+        description="Complete onboarding to create your organization and connect an AWS account."
+      />
+    );
+  }
+
+  async function verify() {
+    setIsVerifying(true);
+    setActionError(null);
+    try {
+      const response = await fetch("/api/aws/connection/verify", { method: "POST" });
+      const body = await response.json();
+      if (!response.ok || !body.success) {
+        setActionError(body.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+      setConnection(body.data.connection);
+      if (!body.data.verified) {
+        setActionError(body.data.connection.lastVerificationError ?? "Verification failed.");
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  }
+
+  async function saveRoleArn() {
+    setIsVerifying(true);
+    setActionError(null);
+    try {
+      const patchResponse = await fetch("/api/aws/connection", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleArn: roleArnInput }),
+      });
+      const patchBody = await patchResponse.json();
+      if (!patchResponse.ok || !patchBody.success) {
+        setActionError(patchBody.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+      setConnection(patchBody.data.connection);
+      setIsReconnecting(false);
+
+      const verifyResponse = await fetch("/api/aws/connection/verify", { method: "POST" });
+      const verifyBody = await verifyResponse.json();
+      if (verifyResponse.ok && verifyBody.success) {
+        setConnection(verifyBody.data.connection);
+        if (!verifyBody.data.verified) {
+          setActionError(verifyBody.data.connection.lastVerificationError ?? "Verification failed.");
+        }
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  }
+
+  if (!connection?.roleArn) {
+    return (
+      <EmptyState
+        icon={CloudOff}
+        title="AWS not connected yet"
+        description="Connect an AWS account so CloudShift-G can audit infrastructure and plan migrations."
+      >
+        <Button className="mt-2" onClick={() => router.push("/onboarding")}>
+          Connect AWS Account
+        </Button>
+      </EmptyState>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Connection Status</CardTitle>
+            <CardDescription>{tenant.name}</CardDescription>
+          </div>
+          <ConnectionStatusBadge status={connection.status} />
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {actionError ? (
+          <Alert variant="destructive">
+            <AlertTitle>{connection.status === "FAILED" ? "Verification failed" : "Error"}</AlertTitle>
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <ConnectionSummary connection={connection} />
+
+        {isReconnecting ? (
+          <div className="flex flex-col gap-2 rounded-md border p-3">
+            <Label htmlFor="reconnect-role-arn">New Role ARN</Label>
+            <Input
+              id="reconnect-role-arn"
+              className="font-mono text-xs"
+              value={roleArnInput}
+              onChange={(event) => setRoleArnInput(event.target.value)}
+              placeholder="arn:aws:iam::123456789012:role/CloudShiftGRole"
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsReconnecting(false);
+                  setRoleArnInput(connection.roleArn ?? "");
+                }}
+                disabled={isVerifying}
+              >
+                Cancel
+              </Button>
+              <Button type="button" className="flex-1" onClick={saveRoleArn} disabled={isVerifying}>
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save & Verify"
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Button type="button" onClick={verify} disabled={isVerifying}>
+              {isVerifying ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                "Verify Connection"
+              )}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setIsReconnecting(true)}>
+              Reconnect
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

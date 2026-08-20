@@ -18,3 +18,47 @@ model Admin {
 
   @@map("admins")
 }
+
+enum ConnectionStatus {
+  NOT_CONNECTED
+  CONNECTED
+  FAILED
+}
+
+enum VerificationSource {
+  AWS
+  DEV_ADAPTER
+}
+
+// "Tenant" is the data-layer/AWS-account-boundary entity, not a UI role — the
+// app remains Admin-only. Exactly one Tenant row exists per deployment,
+// enforced in application code (POST /api/onboarding/tenant is 409 if one exists).
+model Tenant {
+  id            String         @id @default(cuid())
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  awsConnection AwsConnection?
+
+  @@map("tenants")
+}
+
+model AwsConnection {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  roleArn               String?
+  externalId            String
+  awsAccountId          String?
+  status                ConnectionStatus    @default(NOT_CONNECTED)
+  verificationSource    VerificationSource?
+  lastVerifiedAt        DateTime?
+  lastVerificationError String?
+  connectedAt           DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("aws_connections")
+}

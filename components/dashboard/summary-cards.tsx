@@ -5,6 +5,7 @@ import { ShieldCheck, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { formatDateTime } from "@/lib/format";
 
 type SummaryData = {
   adminCount: number;
@@ -90,7 +91,7 @@ export function SummaryCards() {
           ) : (
             <p className="text-sm font-medium">
               {state.data.lastLoginAt
-                ? new Date(state.data.lastLoginAt).toLocaleString()
+                ? formatDateTime(state.data.lastLoginAt)
                 : "This is your first login"}
             </p>
           )}

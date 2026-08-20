@@ -1,8 +1,13 @@
 import { ListChecks } from "lucide-react";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { EmptyState } from "@/components/empty-state";
+import { OnboardingCta } from "@/components/dashboard/onboarding-cta";
+import { getTenantWithConnection, isOnboardingComplete } from "@/lib/tenant";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { connection } = await getTenantWithConnection();
+  const connected = isOnboardingComplete(connection);
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -11,6 +16,8 @@ export default function DashboardPage() {
           Overview of your CloudShift-G environment.
         </p>
       </div>
+
+      {!connected ? <OnboardingCta /> : null}
 
       <SummaryCards />
 
