@@ -38,6 +38,33 @@ export function toGcpRegion(awsRegion: string): string {
   return AWS_TO_GCP_REGION[awsRegion] ?? "us-central1";
 }
 
+// A real, deployable zone within toGcpRegion()'s output — NOT always
+// `${region}-a`. Confirmed live via `gcloud compute zones list`: us-east1
+// and europe-west1 both skip zone "a" entirely (they only have b/c/d) — an
+// earlier version of this code assumed every region starts at "a" and a
+// real `terraform apply` against europe-west1 failed with a genuine
+// "Unknown zone" error as a direct result. Every zone below is independently
+// verified against the live GCP API, not assumed from a naming pattern.
+const GCP_REGION_FIRST_ZONE: Record<string, string> = {
+  "us-east1": "us-east1-b",
+  "us-east4": "us-east4-a",
+  "us-west1": "us-west1-a",
+  "us-west2": "us-west2-a",
+  "us-central1": "us-central1-a",
+  "europe-west1": "europe-west1-b",
+  "europe-west2": "europe-west2-a",
+  "europe-west3": "europe-west3-a",
+  "asia-southeast1": "asia-southeast1-a",
+  "australia-southeast1": "australia-southeast1-a",
+  "asia-south1": "asia-south1-a",
+  "asia-northeast1": "asia-northeast1-a",
+};
+
+export function toGcpZone(awsRegion: string): string {
+  const region = toGcpRegion(awsRegion);
+  return GCP_REGION_FIRST_ZONE[region] ?? `${region}-a`;
+}
+
 export function toAwsLocationName(awsRegion: string): string {
   return AWS_REGION_LOCATION_NAME[awsRegion] ?? AWS_REGION_LOCATION_NAME["us-east-1"];
 }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { toGcpRegion } from "@/lib/pricing/reference-data";
+import { toGcpRegion, toGcpZone } from "@/lib/pricing/reference-data";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
 export type TerraformSourceResource = {
@@ -19,7 +19,9 @@ export type TerraformSourceResource = {
 // Terraform resource identifiers (the HCL label, not the cloud resource
 // name) must be [a-zA-Z0-9_-]; slugify the AWS id so generated blocks stay
 // traceable back to their source resource without risking invalid HCL.
-function slug(value: string): string {
+// Exported so run-apply.ts can recompute the same address to match a
+// MigrationResource back to its entry in the post-apply state file.
+export function slug(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, "_").replace(/^[^a-zA-Z_]/, "_$&");
 }
 
@@ -29,7 +31,7 @@ function hcl(strings: TemplateStringsArray, ...values: unknown[]): string {
 
 function ec2Block(resource: TerraformSourceResource): string {
   const name = slug(resource.awsResourceId);
-  const zone = `${toGcpRegion(resource.region)}-a`;
+  const zone = toGcpZone(resource.region);
   const machineType = resource.gcpSizeLabel ?? "e2-small";
 
   return hcl`
@@ -84,6 +86,12 @@ resource "google_storage_bucket" "${label}" {
   name          = "${bucketName}"
   location      = "${location}"
   storage_class = "STANDARD"
+
+  # Confirmed against a real apply: many GCP orgs enforce the
+  # storage.uniformBucketLevelAccess constraint by default (it's GCP's own
+  # recommended posture over legacy per-object ACLs), and without this the
+  # org policy rejects bucket creation outright with a 412 error.
+  uniform_bucket_level_access = true
 }
 `.trim();
 }

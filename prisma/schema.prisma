@@ -43,6 +43,7 @@ model Tenant {
   comparisonRuns ComparisonRun[]
   migrationPlans MigrationPlan[]
   terraformRuns  TerraformRun[]
+  applyRuns      ApplyRun[]
 
   @@map("tenants")
 }
@@ -348,6 +349,7 @@ model MigrationPlan {
 
   resources     MigrationResource[]
   terraformRuns TerraformRun[]
+  applyRuns     ApplyRun[]
 
   @@unique([tenantId, sequenceNumber])
   @@index([tenantId, status])
@@ -369,6 +371,12 @@ model MigrationResource {
   gcpService       String
   gcpSizeLabel     String?
   estimatedMigrationCost Decimal? @db.Decimal(12, 2)
+
+  // Populated after a successful ApplyRun by matching this resource's
+  // deterministic Terraform HCL address against the resulting state file —
+  // the real live GCP resource, not a synthetic status enum.
+  gcpResourceSelfLink String?
+  provisionedAt       DateTime?
 
   createdAt DateTime @default(now())
 
@@ -422,4 +430,45 @@ model TerraformRun {
   @@unique([migrationPlanId, version])
   @@index([tenantId, status])
   @@map("terraform_runs")
+}
+
+enum ApplyRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// A real `terraform apply` against an APPROVED plan's already-validated,
+// already-planned Terraform — this is the one model in the whole schema
+// whose existence means real, billable GCP infrastructure was created.
+// `destroy` is not invoked by any code that produces or consumes this model
+// (see lib/terraform/cli.ts) — rollback is a distinct, later phase.
+model ApplyRun {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  migrationPlanId String
+  migrationPlan   MigrationPlan @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  version Int
+  status  ApplyRunStatus @default(QUEUED)
+
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+
+  applyOutput      String?
+  resourcesCreated Int?
+  // Raw terraform.tfstate JSON — without this, anything apply creates would
+  // be unmanageable by Terraform ever again (no future rollback possible).
+  terraformState   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([migrationPlanId, version])
+  @@index([tenantId, status])
+  @@map("apply_runs")
 }

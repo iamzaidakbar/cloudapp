@@ -5,6 +5,7 @@ import { getMigrationPlan } from "@/lib/migrations";
 import { getActiveTerraformRun, getLatestTerraformRun, createTerraformRun, getTerraformSourceResources } from "@/lib/terraform-runs";
 import { generateTerraformConfig } from "@/lib/terraform/generate";
 import { runTerraformCli } from "@/lib/terraform/run-terraform";
+import { reconcileStaleTerraformRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api/response";
 
@@ -33,6 +34,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (plan.status !== "APPROVED") {
       return apiError("Only an approved migration plan can have Terraform generated", 400);
     }
+
+    await reconcileStaleTerraformRuns(tenant.id);
 
     const active = await getActiveTerraformRun(tenant.id, id);
     if (active) {
@@ -69,6 +72,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!tenant) {
       return apiError("Organization not configured", 404);
     }
+
+    await reconcileStaleTerraformRuns(tenant.id);
 
     const terraformRun = await getLatestTerraformRun(tenant.id, id);
     return apiSuccess({ terraformRun });

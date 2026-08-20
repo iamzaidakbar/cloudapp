@@ -2,11 +2,13 @@ import { notFound } from "next/navigation";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getLatestTerraformRun } from "@/lib/terraform-runs";
+import { getLatestApplyRun } from "@/lib/apply-runs";
 import { MigrationStatusBadge } from "@/components/migrations/migration-status-badge";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
 import { PlanActions } from "@/components/migrations/plan-actions";
 import { TerraformPanel } from "@/components/migrations/terraform-panel";
+import { ApplyPanel } from "@/components/migrations/apply-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -19,6 +21,8 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   if (!plan) notFound();
 
   const terraformRun = plan.status === "APPROVED" ? await getLatestTerraformRun(tenant.id, id) : null;
+  const applyRun = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded ? await getLatestApplyRun(tenant.id, id) : null;
+  const canExecute = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded === true;
 
   return (
     <div className="flex flex-col gap-4">
@@ -75,6 +79,8 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
       {plan.status === "APPROVED" ? (
         <TerraformPanel migrationPlanId={plan.id} initialTerraformRun={terraformRun} />
       ) : null}
+
+      {canExecute ? <ApplyPanel migrationPlanId={plan.id} initialApplyRun={applyRun} /> : null}
     </div>
   );
 }

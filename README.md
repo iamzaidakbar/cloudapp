@@ -2,7 +2,7 @@
 
 CloudShift-G is an AWS → GCP migration and optimization platform. The application has a single **Admin** role — there is no tenant-member or platform-operator role in this product. "Tenant" in the data model refers to the organizational/AWS-account boundary, not a UI role.
 
-This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), **migration planning** (select resources from a comparison, create a plan, real admin approval gate), and **Terraform generation** (real HCL generation + a real `terraform validate`/`plan` against your actual GCP project — no `apply`/`destroy` anywhere in this build). Migration execution, Jobs, Audit Log, and the real GKE deployment integration are not built yet — their sidebar links exist but 404 until each is implemented.
+This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), **migration planning** (select resources from a comparison, create a plan, real admin approval gate), **Terraform generation** (real HCL generation + a real `terraform validate`/`plan` against your actual GCP project), and **migration execution** (a real `terraform apply` — this genuinely provisions billable GCP infrastructure; `destroy` is still not implemented anywhere in this build). Rollback, data transfer/cutover, Jobs, Audit Log, and the real GKE deployment integration are not built yet — their sidebar links exist but 404 until each is implemented.
 
 ## Tech stack
 
@@ -13,8 +13,8 @@ This README covers what's built so far: the **application foundation** (authenti
 - `@aws-sdk/client-sts` for real cross-account AWS role verification, with a clearly-labeled simulated dev adapter for local testing without an AWS account
 - `@aws-sdk/client-{ec2,s3,rds,lambda,elastic-load-balancing-v2,iam,cloudwatch-logs,cloudwatch,cost-explorer}` for real multi-service AWS infrastructure inventory, using the same short-lived assumed-role credentials, plus the same dev-adapter pattern for local testing
 - `@aws-sdk/client-pricing` (AWS Price List API) + the GCP Cloud Billing Catalog REST API (plain `fetch`, API-key auth) for real AWS→GCP cost comparison, cached in Postgres with a documented TTL — never hardcoded prices — plus the same dev-adapter pattern for local testing
-- The `terraform` CLI, invoked as a real subprocess (`terraform init`/`validate`/`plan`/`show` only — `apply`/`destroy` are not implemented anywhere in this codebase), authenticating via your local `gcloud auth application-default login` session — no service-account key file is ever generated or stored
-- Next.js `after()` for background audit/comparison/Terraform execution (fast HTTP ack, real work continues server-side) — no external job queue yet, by design; see Troubleshooting for what that means for interrupted runs
+- The `terraform` CLI, invoked as a real subprocess (`init`/`validate`/`plan`/`show`/`apply` — `destroy` is still not implemented anywhere in this codebase, a deliberate boundary, not a gate), authenticating via your local `gcloud auth application-default login` session — no service-account key file is ever generated or stored
+- Next.js `after()` for background audit/comparison/Terraform/apply execution (fast HTTP ack, real work continues server-side) — no external job queue yet, by design; see Troubleshooting for what that means for interrupted runs
 
 ## Prerequisites
 
@@ -74,7 +74,7 @@ app/
     audits/                  Audit run list + report (real-time polling, per-service progress)
     infrastructure/          Resource catalog (filters/search/pagination) + resource detail
     comparisons/             Comparison run list + report (AWS vs GCP cost table, real-time polling)
-    migrations/              Migration plan list + resource-selection form + plan detail (approve/cancel/Terraform)
+    migrations/              Migration plan list + resource-selection form + plan detail (approve/cancel/Terraform/Execute)
   api/
     auth/login, auth/logout  Session endpoints
     onboarding/tenant        Creates the (one) Tenant + its AwsConnection stub
@@ -92,6 +92,7 @@ app/
     migrations/[id]/approve      Real approval gate
     migrations/[id]/cancel       Discard a draft plan
     migrations/[id]/terraform    Generate + validate + real-plan Terraform for an approved plan
+    migrations/[id]/apply        Real terraform apply — provisions real, billable GCP infrastructure
     health, ready             Liveness / readiness (readiness pings Postgres)
     dashboard/summary        Real Prisma-backed dashboard data
 components/
@@ -101,7 +102,7 @@ components/
   audits/                   Run button, status badge, report view, findings panel
   infrastructure/           Filter bar, table, resource detail tabs
   comparisons/              Run button, runs table, report view, summary cards, items table
-  migrations/               Status badge, resource selector (checkboxes), runs table, resources table, summary cards, approve/cancel actions, Terraform panel
+  migrations/               Status badge, resource selector (checkboxes), runs table, resources table, summary cards, approve/cancel actions, Terraform panel, Apply (execute) panel
   findings/                 Severity badge, findings table, filter bar (shared)
   aws/                      Connection status/summary, data-source (dev-adapter) badge
   shared/                   Cross-page data-table shell (pagination + empty-state switch), hydration-safe date/time
@@ -115,11 +116,12 @@ lib/
   gcp/is-configured.ts      GCP Billing API key check
   pricing/                  AWS Price List + GCP Billing Catalog fetchers, pricing cache, AWS<->GCP
                              instance mapping, dev adapter, comparison job runner
-  terraform/                HCL generator, the only module that ever spawns a `terraform` subprocess
-                             (init/validate/plan/show only), the Terraform job runner
+  terraform/                HCL generator (generate.ts), the only module that ever spawns a `terraform`
+                             subprocess (cli.ts — init/validate/plan/show/apply, never destroy), the
+                             Terraform + apply job runners, stale-run reconciliation
   db/with-tenant.ts         Row-level-security session context helper
-  tenant.ts, audits.ts, infrastructure.ts, comparisons.ts, migrations.ts, terraform-runs.ts
-                             Shared tenant/audit/resource/comparison/migration/Terraform read+write helpers
+  tenant.ts, audits.ts, infrastructure.ts, comparisons.ts, migrations.ts, terraform-runs.ts, apply-runs.ts
+                             Shared tenant/audit/resource/comparison/migration/Terraform/apply read+write helpers
   api/pagination.ts         Shared pagination query-param parsing
   validation/               Zod schemas
   db.ts, env.ts, decimal.ts, format.ts   Prisma client, validated env vars, serialization helpers
@@ -157,6 +159,8 @@ docker-compose.yml           Local Postgres
 | POST | `/api/migrations/:id/cancel` | Admin | Discards a `DRAFT` plan — 400 if already approved/cancelled |
 | POST | `/api/migrations/:id/terraform` | Admin | Generates real Terraform + runs a real `init`/`validate`/`plan` (400 if the plan isn't `APPROVED` or `GCP_PROJECT_ID` isn't set, 409 if already running) |
 | GET | `/api/migrations/:id/terraform` | Admin | Latest Terraform run for the plan — the polling endpoint |
+| POST | `/api/migrations/:id/apply` | Admin | Runs a real `terraform apply` — provisions real, billable GCP infrastructure (400 if there's no successful `plan` on record, 409 if already running) |
+| GET | `/api/migrations/:id/apply` | Admin | Latest apply run for the plan — the polling endpoint |
 | GET | `/api/health` | — | Liveness (no DB dependency) |
 | GET | `/api/ready` | — | Readiness (real `SELECT 1` against Postgres) |
 
@@ -219,6 +223,14 @@ docker-compose.yml           Local Postgres
 31. "Regenerate Terraform" creates a new versioned run for the same plan; history isn't lost.
 32. RLS holds on `terraform_runs` the same way as `aws_connections` (see #9).
 
+**Migration Execution**
+33. "Execute Migration" only appears once a plan's latest Terraform run has a successful, real `plan` on record — never offered blind. It's styled distinctly (amber, with explicit "this creates real, billable resources" copy) from every other action in the app.
+34. Clicking it runs a real `terraform apply` — confirmed against a live GCP project: a genuine 412 org-policy error from Google (missing `uniform_bucket_level_access`) and a genuine 403 (Cloud Functions API disabled) both surfaced as real, unedited error text, while an independent resource in the same run (Cloud SQL) still completed and was correctly tracked — this is real partial-failure handling, not an all-or-nothing simulation.
+35. Whatever actually gets created — success or partial failure alike — is reflected in `MigrationResource.gcpResourceSelfLink`/`provisionedAt` (shown as a new column in the resources table) and in `ApplyRun.terraformState`, because Terraform's own state file is authoritative for what's real, independent of the overall command's exit code.
+36. Grep `lib/terraform/` again — `destroy` still doesn't appear as an invoked subcommand anywhere, only in comments explaining its absence; `apply` does now appear, deliberately.
+37. A `RUNNING` apply stuck past 30 minutes (longer than every other job's threshold — real Cloud SQL creation alone commonly takes 5–15 minutes) is auto-reconciled to `FAILED` on the next request, same self-healing pattern as every other job.
+38. RLS holds on `apply_runs` the same way as `aws_connections` (see #9).
+
 ## Troubleshooting
 
 - **Port 5432 already in use** — stop any other local Postgres instance, or change the host port in `docker-compose.yml`.
@@ -236,12 +248,15 @@ docker-compose.yml           Local Postgres
 - **AWS-side comparison pricing (EC2/RDS/S3) shows "N/A" even with AWS credentials configured** — this uses CloudShift-G's own AWS identity directly (not the tenant's assumed role, since price list data isn't tenant-scoped), and needs a separate `pricing:GetProducts` permission on that IAM user/role — it's not covered by the audit-role's read-only policy. Attach an inline policy granting `pricing:GetProducts` (resource `*`) to fix.
 - **"New Migration" is disabled** — a migration plan sources its resources from the latest **successful** comparison; run one first at `/comparisons`. If a comparison exists but only found VPCs, there's nothing selectable either (VPCs aren't individually migratable).
 - **A migration plan's costs all show "N/A"** — it inherited `costAvailable: false` from every one of its source comparison items (e.g. all-Lambda selections, or a comparison that ran on the dev adapter without cost data) — not a bug, the plan just has nothing priced to sum.
-- **Migration plan detail page doesn't show a "Provision"/"Execute" button** — expected in this build; actual execution (`terraform apply`) is a later phase, deliberately not implemented anywhere in this codebase yet. Terraform generation + validate + a real read-only `plan` are available once a plan is approved.
+- **"Execute Migration" doesn't appear on the plan detail page** — it only shows once the latest Terraform run succeeded with a real `plan` on record. Generate Terraform first.
 - **"Generate Terraform" is missing / a 400 says to set `GCP_PROJECT_ID`** — required env var, no dev-adapter fallback; set it to your real target GCP project ID.
-- **First "Generate Terraform" click takes ~15–30s** — `terraform init` downloads the `hashicorp/google` provider the first time. Subsequent runs reuse the local plugin cache (`.terraform-plugin-cache/`, gitignored) and are much faster.
-- **`terraform plan` fails with a real GCP API error** (e.g. "API not enabled") — expected on a fresh GCP project; the panel surfaces the real error, not a generic one. Fix with `gcloud services enable compute.googleapis.com sqladmin.googleapis.com cloudfunctions.googleapis.com storage.googleapis.com --project=<your-project-id>` (only enable the services for the resource types you're actually generating).
-- **`terraform validate`/`plan` fails with an auth error** — confirm `gcloud auth application-default login` has been run on this machine; Terraform's `google` provider picks up those Application Default Credentials automatically, no key file is used.
+- **First "Generate Terraform"/"Execute Migration" click takes ~15–30s** — `terraform init` downloads the `hashicorp/google` provider the first time. Subsequent runs reuse the local plugin cache (`.terraform-plugin-cache/`, gitignored) and are much faster.
+- **`terraform plan`/`apply` fails with a real GCP API error** (e.g. "API not enabled", or a 412 org-policy violation) — expected, and surfaced as the real, unedited error, not a generic one. For "API not enabled": `gcloud services enable compute.googleapis.com sqladmin.googleapis.com cloudfunctions.googleapis.com storage.googleapis.com --project=<your-project-id>` (only enable the services for the resource types you're actually generating). For an org-policy violation, the fix depends on the specific constraint your organization enforces.
+- **`apply` fails with "Unknown zone"** — fixed: an earlier version of `lib/terraform/generate.ts` assumed every GCP region's first zone is `${region}-a`, which is false for at least `us-east1` and `europe-west1` (both skip zone "a" — confirmed live via `gcloud compute zones list`, not assumed). `lib/pricing/reference-data.ts`'s `toGcpZone()` now uses a verified per-region lookup table instead.
+- **`terraform validate`/`plan`/`apply` fails with an auth error** — confirm `gcloud auth application-default login` has been run on this machine; Terraform's `google` provider picks up those Application Default Credentials automatically, no key file is used.
+- **An apply partially failed but a resource is missing from the resources table's "Provisioned" column** — check `ApplyRun.applyOutput` for that specific resource's real error; independent resources in one `apply` succeed or fail independently, and only what Terraform's own state file confirms as created gets a `gcpResourceSelfLink`.
+- **I created a real resource by mistake while testing and need to clean it up** — this build deliberately has no `destroy`/rollback yet (see Roadmap). Delete it directly via `gcloud` (e.g. `gcloud compute instances delete <name>`, `gcloud sql instances delete <name>`, `gcloud storage buckets delete <name>`) or the GCP Console — the resource's real name/self-link is in the resources table and in `ApplyRun.terraformState`.
 
 ## Roadmap
 
-Migration execution (`terraform apply`, transfer, cutover, verify, rollback), Jobs, Audit Log, and the real GKE deployment integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.
+Rollback (`terraform destroy`), data transfer/cutover, verification, Jobs, Audit Log, and the real GKE deployment integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.

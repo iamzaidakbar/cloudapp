@@ -1,4 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
@@ -20,9 +21,13 @@ export type MigrationResourceRow = {
   gcpService: string;
   gcpSizeLabel: string | null;
   estimatedMigrationCost: string | number | null;
+  gcpResourceSelfLink: string | null;
+  provisionedAt: string | Date | null;
 };
 
 export function MigrationResourcesTable({ resources }: { resources: MigrationResourceRow[] }) {
+  const anyProvisioned = resources.some((r) => r.provisionedAt);
+
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -33,6 +38,7 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
             <TableHead>Region</TableHead>
             <TableHead>GCP Target</TableHead>
             <TableHead>Migration Cost</TableHead>
+            {anyProvisioned ? <TableHead>Provisioned</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -51,6 +57,22 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
               <TableCell>
                 {resource.estimatedMigrationCost !== null ? formatCurrency(resource.estimatedMigrationCost) : "N/A"}
               </TableCell>
+              {anyProvisioned ? (
+                <TableCell className="max-w-64">
+                  {resource.provisionedAt ? (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="truncate font-mono text-xs" title={resource.gcpResourceSelfLink ?? undefined}>
+                        {resource.gcpResourceSelfLink}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        <FormattedDateTime value={resource.provisionedAt} />
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+              ) : null}
             </TableRow>
           ))}
         </TableBody>

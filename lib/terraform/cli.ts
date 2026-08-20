@@ -12,10 +12,10 @@ const PLUGIN_CACHE_DIR = path.join(process.cwd(), ".terraform-plugin-cache");
 type CliResult = { success: boolean; output: string };
 
 // This module is the ONLY place a `terraform` subprocess is ever spawned in
-// this codebase, and it deliberately exposes exactly these 4 read-only-safe
-// subcommands — `apply`/`destroy` are not implemented here or anywhere else,
-// not merely gated, so there is no code path capable of provisioning or
-// destroying real infrastructure in this phase.
+// this codebase. `apply` (Migration Execution) is implemented below —
+// `destroy` is still not implemented here or anywhere else, not merely
+// gated, so there is no code path in this codebase capable of tearing down
+// real infrastructure. Rollback is a distinct, later phase.
 async function run(cwd: string, args: string[], allowedExitCodes: number[] = [0]): Promise<CliResult> {
   try {
     const { stdout } = await execFileAsync("terraform", args, {
@@ -53,4 +53,13 @@ export async function terraformShowText(cwd: string): Promise<CliResult> {
 
 export async function terraformShowJson(cwd: string): Promise<CliResult> {
   return run(cwd, ["show", "-json", "tfplan"]);
+}
+
+// Real provisioning — creates actual, billable GCP resources. No `-out`
+// reuse of an earlier saved plan (that file doesn't outlive its own
+// ephemeral run directory); `apply` does its own fresh implicit plan first.
+// The generated config is unchanged since the last `terraform plan`, so the
+// outcome matches what was already shown and approved.
+export async function terraformApply(cwd: string): Promise<CliResult> {
+  return run(cwd, ["apply", "-no-color", "-input=false", "-auto-approve"]);
 }
