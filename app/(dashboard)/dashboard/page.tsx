@@ -3,8 +3,10 @@ import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { EmptyState } from "@/components/empty-state";
 import { OnboardingCta } from "@/components/dashboard/onboarding-cta";
 import { LatestAuditSummary } from "@/components/dashboard/latest-audit-summary";
+import { LatestComparisonSummary } from "@/components/dashboard/latest-comparison-summary";
 import { getTenantWithConnection, isOnboardingComplete } from "@/lib/tenant";
 import { listAuditRuns } from "@/lib/audits";
+import { getLatestComparisonRun } from "@/lib/comparisons";
 
 export default async function DashboardPage() {
   const { tenant, connection } = await getTenantWithConnection();
@@ -13,6 +15,7 @@ export default async function DashboardPage() {
   const latestAuditRun = connected
     ? (await listAuditRuns(tenant!.id, 0, 1)).items[0] ?? null
     : null;
+  const latestComparisonRun = connected ? await getLatestComparisonRun(tenant!.id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -28,7 +31,10 @@ export default async function DashboardPage() {
       <SummaryCards />
 
       {latestAuditRun ? (
-        <LatestAuditSummary auditRun={latestAuditRun} />
+        <>
+          <LatestAuditSummary auditRun={latestAuditRun} />
+          {latestComparisonRun ? <LatestComparisonSummary comparisonRun={latestComparisonRun} /> : null}
+        </>
       ) : (
         <EmptyState
           icon={ListChecks}

@@ -69,6 +69,11 @@ function collectService(service: AwsServiceType, rand: () => number, seedTag: st
     if (service === "EC2_INSTANCE") {
       base.status = rand() > 0.15 ? "running" : "stopped";
       base.instanceType = pick(rand, ["t3.micro", "t3.large", "m5.xlarge", "m5.2xlarge", "c5.4xlarge"]);
+      // Mirrors the real DescribeInstances shape (InstanceType field) so
+      // downstream consumers that read rawConfig directly — e.g. the
+      // AWS->GCP comparison feature's instance-size mapping — see
+      // realistic simulated data too, not just the normalized top-level field.
+      base.rawConfig = { simulated: true, resourceId, InstanceType: base.instanceType };
       if (base.status === "running") {
         base.cpuUtilizationAvgPercent = Math.round(rand() * 100 * 10) / 10;
         base.cpuUtilizationDatapointCount = 336; // 14 days hourly
@@ -78,10 +83,25 @@ function collectService(service: AwsServiceType, rand: () => number, seedTag: st
     if (service === "EBS_VOLUME") {
       base.encrypted = rand() > 0.3;
       base.status = rand() > 0.75 ? "available" : "in-use";
+      const sizeGb = 8 + Math.floor(rand() * 500);
+      base.rawConfig = { simulated: true, resourceId, Size: sizeGb };
     }
 
     if (service === "S3_BUCKET") {
       base.isPublic = rand() > 0.85;
+    }
+
+    if (service === "RDS_INSTANCE") {
+      const instanceClass = pick(rand, ["db.t3.micro", "db.t3.medium", "db.m5.large", "db.r5.xlarge"]);
+      const engine = pick(rand, ["mysql", "postgres", "mariadb"]);
+      const allocatedStorage = 20 + Math.floor(rand() * 480);
+      base.rawConfig = {
+        simulated: true,
+        resourceId,
+        DBInstanceClass: instanceClass,
+        Engine: engine,
+        AllocatedStorage: allocatedStorage,
+      };
     }
 
     resources.push(base);
@@ -98,12 +118,14 @@ function collectService(service: AwsServiceType, rand: () => number, seedTag: st
     resources[0].cpuUtilizationAvgPercent = 3.2;
     resources[0].cpuUtilizationDatapointCount = 336;
     resources[0].instanceType = "t3.micro";
+    resources[0].rawConfig = { simulated: true, resourceId: resources[0].resourceId, InstanceType: "t3.micro" };
   }
   if (service === "EC2_INSTANCE" && resources.length > 1) {
     resources[1].status = "running";
     resources[1].cpuUtilizationAvgPercent = 4.1;
     resources[1].cpuUtilizationDatapointCount = 336;
     resources[1].instanceType = "m5.2xlarge";
+    resources[1].rawConfig = { simulated: true, resourceId: resources[1].resourceId, InstanceType: "m5.2xlarge" };
   }
   if (resources.length > 0) resources[resources.length - 1].tags = {};
 

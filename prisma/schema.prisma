@@ -38,8 +38,9 @@ model Tenant {
   name          String
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  awsConnection AwsConnection?
-  auditRuns     AuditRun[]
+  awsConnection  AwsConnection?
+  auditRuns      AuditRun[]
+  comparisonRuns ComparisonRun[]
 
   @@map("tenants")
 }
@@ -215,4 +216,96 @@ model AuditFinding {
   @@index([tenantId, severity])
   @@index([auditRunId])
   @@map("audit_findings")
+}
+
+enum GcpDataSource {
+  GCP
+  DEV_ADAPTER
+}
+
+// Sourced from the latest SUCCEEDED AuditRun's resources — same
+// point-in-time-snapshot / no-generic-Job-table reasoning as AuditRun above.
+// Kept intentionally parallel in shape to AuditRun rather than unified into a
+// shared Job table: this is only the 2nd job-producing feature, and a
+// 2-call-site abstraction is exactly the premature-abstraction case this
+// codebase avoids elsewhere (DataTableShell was introduced only once 2
+// tables needed it). Migrations will be the 3rd job type — revisit then.
+model ComparisonRun {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  version           Int
+  status            JobStatus          @default(QUEUED)
+  sourceAuditRunId  String
+  awsDataSource     VerificationSource
+  gcpDataSource     GcpDataSource
+
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+
+  itemCount               Int?
+  totalAwsMonthlyCost     Decimal? @db.Decimal(12, 2)
+  totalGcpLikeForLikeCost Decimal? @db.Decimal(12, 2)
+  totalGcpOptimizedCost   Decimal? @db.Decimal(12, 2)
+  costDataAvailable       Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items ComparisonItem[]
+
+  @@unique([tenantId, version])
+  @@index([tenantId, status])
+  @@map("comparison_runs")
+}
+
+model ComparisonItem {
+  id              String        @id @default(cuid())
+  tenantId        String
+  comparisonRunId String
+  comparisonRun   ComparisonRun @relation(fields: [comparisonRunId], references: [id], onDelete: Cascade)
+
+  auditResourceId String
+  awsService      AwsServiceType
+  awsResourceId   String
+  awsResourceName String?
+  region          String
+  awsSizeLabel    String?
+
+  gcpService   String
+  gcpSizeLabel String?
+
+  currentAwsMonthlyCost     Decimal? @db.Decimal(12, 2)
+  gcpLikeForLikeMonthlyCost Decimal? @db.Decimal(12, 2)
+  gcpOptimizedMonthlyCost   Decimal? @db.Decimal(12, 2)
+  costAvailable             Boolean  @default(false)
+  estimatedMigrationCost    Decimal? @db.Decimal(12, 2)
+
+  performanceNotes String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([comparisonRunId, awsResourceId])
+  @@index([tenantId, awsService])
+  @@map("comparison_items")
+}
+
+// Public list pricing, identical for every tenant — deliberately NOT
+// tenant-scoped and NOT covered by row-level security (unlike every other
+// table in this schema), same treatment as any other non-tenant reference
+// data.
+model PricingCache {
+  id        String   @id @default(cuid())
+  provider  String // "AWS" | "GCP"
+  cacheKey  String
+  payload   Json
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([provider, cacheKey])
+  @@index([expiresAt])
+  @@map("pricing_cache")
 }

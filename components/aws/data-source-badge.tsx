@@ -3,12 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type DataSourceBadgeProps = {
-  dataSource: "AWS" | "DEV_ADAPTER";
+  dataSource: "AWS" | "GCP" | "DEV_ADAPTER";
   compact?: boolean;
 };
 
 export function DataSourceBadge({ dataSource, compact = false }: DataSourceBadgeProps) {
-  if (dataSource === "AWS") return null;
+  if (dataSource !== "DEV_ADAPTER") return null;
 
   if (compact) {
     return (

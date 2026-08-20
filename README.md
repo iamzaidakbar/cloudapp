@@ -2,7 +2,7 @@
 
 CloudShift-G is an AWS → GCP migration and optimization platform. The application has a single **Admin** role — there is no tenant-member or platform-operator role in this product. "Tenant" in the data model refers to the organizational/AWS-account boundary, not a UI role.
 
-This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, and **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog). Later sections (Comparisons, Migrations, Jobs, Audit Log, and the GCP/Terraform/GKE integration) are not built yet — their sidebar links exist but 404 until each is implemented.
+This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), and **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing). Later sections (Migrations, Jobs, Audit Log, and the GCP/Terraform/GKE integration) are not built yet — their sidebar links exist but 404 until each is implemented.
 
 ## Tech stack
 
@@ -12,7 +12,8 @@ This README covers what's built so far: the **application foundation** (authenti
 - `iron-session` for authentication (encrypted, `httpOnly` session cookie)
 - `@aws-sdk/client-sts` for real cross-account AWS role verification, with a clearly-labeled simulated dev adapter for local testing without an AWS account
 - `@aws-sdk/client-{ec2,s3,rds,lambda,elastic-load-balancing-v2,iam,cloudwatch-logs,cloudwatch,cost-explorer}` for real multi-service AWS infrastructure inventory, using the same short-lived assumed-role credentials, plus the same dev-adapter pattern for local testing
-- Next.js `after()` for background audit execution (fast HTTP ack, real work continues server-side) — no external job queue yet, by design; see Troubleshooting for what that means for interrupted runs
+- `@aws-sdk/client-pricing` (AWS Price List API) + the GCP Cloud Billing Catalog REST API (plain `fetch`, API-key auth) for real AWS→GCP cost comparison, cached in Postgres with a documented TTL — never hardcoded prices — plus the same dev-adapter pattern for local testing
+- Next.js `after()` for background audit/comparison execution (fast HTTP ack, real work continues server-side) — no external job queue yet, by design; see Troubleshooting for what that means for interrupted runs
 
 ## Prerequisites
 
@@ -36,6 +37,7 @@ Fill in `.env`:
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Credentials for the first (and only) Admin account. There is no signup flow — this account is created by the seed script. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` / `AWS_REGION` | Optional. CloudShift-G's own AWS identity, used only to call `sts:AssumeRole` against a tenant-provided role ARN. Leave unset to use the simulated dev adapter. |
 | `AWS_COST_EXPLORER_ENABLED` | Optional, defaults to unset (off). Cost Explorer's `GetCostAndUsage` costs a small real fee per API call and needs up to 24h to populate on a fresh account — it's never called just because AWS credentials are configured. Set to `"true"` to opt in once you're ready. |
+| `GCP_BILLING_API_KEY` | Optional. An API key for any GCP project with the "Cloud Billing API" enabled — used only to read public GCP list pricing for the comparison feature (global public pricing, not tied to a specific billing account; no OAuth/service account needed). Leave unset to use the simulated dev adapter for GCP pricing. AWS-side comparison pricing needs no separate credential — it reuses `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` above (a direct call, not cross-account, since price list data isn't tenant-scoped). |
 
 ## Database setup
 
@@ -68,6 +70,7 @@ app/
     settings/                Settings index + AWS Connection management page
     audits/                  Audit run list + report (real-time polling, per-service progress)
     infrastructure/          Resource catalog (filters/search/pagination) + resource detail
+    comparisons/             Comparison run list + report (AWS vs GCP cost table, real-time polling)
   api/
     auth/login, auth/logout  Session endpoints
     onboarding/tenant        Creates the (one) Tenant + its AwsConnection stub
@@ -78,6 +81,8 @@ app/
     audits/[id]/findings      Paginated, filterable findings for one run
     infrastructure            Paginated/filterable resource catalog
     infrastructure/[id]       One resource + its findings
+    comparisons               Start/list comparison runs (sourced from the latest successful audit)
+    comparisons/[id]           Poll one run's status + priced items
     health, ready             Liveness / readiness (readiness pings Postgres)
     dashboard/summary        Real Prisma-backed dashboard data
 components/
@@ -86,18 +91,22 @@ components/
   settings/                 AWS connection panel
   audits/                   Run button, status badge, report view, findings panel
   infrastructure/           Filter bar, table, resource detail tabs
+  comparisons/              Run button, runs table, report view, summary cards, items table
   findings/                 Severity badge, findings table, filter bar (shared)
   aws/                      Connection status/summary, data-source (dev-adapter) badge
-  shared/                   Cross-page data-table shell (pagination + empty-state switch)
-  dashboard/                Summary cards, onboarding CTA, latest-audit summary
+  shared/                   Cross-page data-table shell (pagination + empty-state switch), hydration-safe date/time
+  dashboard/                Summary cards, onboarding CTA, latest-audit/comparison summaries
   auth/                     Login form
   ui/                       shadcn/ui primitives
 lib/
   auth/                     Session, password hashing, auth guards
   aws/                      STS integration, dev adapter, verification orchestrator
     audit/                   Real AWS collectors, dev adapter, findings engine, job runner
+  gcp/is-configured.ts      GCP Billing API key check
+  pricing/                  AWS Price List + GCP Billing Catalog fetchers, pricing cache, AWS<->GCP
+                             instance mapping, dev adapter, comparison job runner
   db/with-tenant.ts         Row-level-security session context helper
-  tenant.ts, audits.ts, infrastructure.ts   Shared tenant/audit/resource read helpers
+  tenant.ts, audits.ts, infrastructure.ts, comparisons.ts   Shared tenant/audit/resource/comparison read helpers
   api/pagination.ts         Shared pagination query-param parsing
   validation/               Zod schemas
   db.ts, env.ts, decimal.ts, format.ts   Prisma client, validated env vars, serialization helpers
@@ -125,6 +134,9 @@ docker-compose.yml           Local Postgres
 | GET | `/api/audits/:id/findings` | Admin | Paginated findings for one run, filterable by `severity`/`type` |
 | GET | `/api/infrastructure` | Admin | Paginated/filterable resource catalog from the latest successful audit |
 | GET | `/api/infrastructure/:id` | Admin | One resource + its findings |
+| POST | `/api/comparisons` | Admin | Starts a real background comparison run against the latest successful audit (400 if none exists, 409 if one is already in progress) |
+| GET | `/api/comparisons` | Admin | Paginated comparison run history |
+| GET | `/api/comparisons/:id` | Admin | One run's status + priced items — the polling endpoint |
 | GET | `/api/health` | — | Liveness (no DB dependency) |
 | GET | `/api/ready` | — | Readiness (real `SELECT 1` against Postgres) |
 
@@ -164,6 +176,14 @@ docker-compose.yml           Local Postgres
 14. Starting a second audit while one is already running returns 409; killing the dev server mid-run and reloading `/audits` afterward flips the orphaned run to `FAILED` instead of leaving it stuck (`reconcileStaleAuditRuns`).
 15. RLS holds on all four new tables the same way as `aws_connections` (see #9).
 
+**AWS → GCP Comparison**
+16. `/comparisons` requires a successful audit first — "Run Comparison" is disabled with a tooltip until one exists. Once available, clicking it returns immediately (202) and redirects to the report, which polls every 3s and shows priced items appearing progressively as each is priced — not a fake progress bar.
+17. EC2, RDS, and S3 resources get real like-for-like and (where CloudWatch utilization shows <10% average CPU) optimized GCP sizing recommendations; Lambda shows a real service mapping with AWS cost marked "usage-based — not collected" (an intentional, documented boundary, not a bug); VPC shows a $0 mapping on both sides.
+18. Without real AWS/GCP credentials, the dev adapter prices all 5 comparable service types with plausible simulated numbers, always showing the amber "Simulated (Dev Adapter)" badge for each side independently — a comparison never mixes real AWS dollars with simulated GCP dollars or vice versa; if either side isn't configured, the whole run falls back to simulated on both sides.
+19. `PricingCache` rows populate on a real run (24h TTL for prices, 7 days for GCP's service-ID resolution) — a second comparison shortly after the first should not re-hit either external pricing API for the same instance type/region.
+20. RLS holds on `comparison_runs`/`comparison_items` the same way as `aws_connections` (see #9); `pricing_cache` is deliberately **not** tenant-scoped (public list pricing, identical for every tenant) and has no RLS policy.
+21. The dashboard's "Latest Comparison" card and Est. GCP Monthly Cost figure reflect the latest successful comparison run.
+
 ## Troubleshooting
 
 - **Port 5432 already in use** — stop any other local Postgres instance, or change the host port in `docker-compose.yml`.
@@ -174,7 +194,12 @@ docker-compose.yml           Local Postgres
 - **Real audits report every service as failed with AccessDenied** — expected until you attach a read-only IAM policy to the connected role. It needs, at minimum: `ec2:Describe*`, the S3 read calls (`ListAllMyBuckets`, `GetBucketLocation`/`Tagging`/`Acl`/`PolicyStatus`/`Policy`/`EncryptionConfiguration`/`PublicAccessBlock`), `rds:DescribeDBInstances`, `lambda:ListFunctions`, `elasticloadbalancing:Describe*`, `iam:ListRoles`, `logs:DescribeLogGroups`, and optionally `cloudwatch:GetMetricData` (utilization findings just don't fire without it — the audit still succeeds).
 - **An audit seems stuck in "Running" forever** — there's no external job queue/worker yet; a long-running audit relies on the Next.js process staying alive (`after()`). If the dev server was restarted mid-run, the next request to any `/api/audits*` route auto-reconciles runs stuck for >20 minutes to `FAILED` rather than leaving them stuck — just reload the page.
 - **Cost/utilization show "N/A" or "Unavailable"** — this is the honest state, not a bug: Cost Explorer is opt-in (`AWS_COST_EXPLORER_ENABLED`) and CloudWatch/Cost Explorer calls degrade gracefully on missing permissions rather than failing the whole audit.
+- **"Run Comparison" is disabled** — a comparison sources its resources from the latest **successful** audit; run one first at `/audits`.
+- **Comparison shows real AWS but simulated GCP prices, or vice versa** — this can't actually happen by design (see checklist #18) — if you see mixed real/simulated data, that's a bug, not expected degraded behavior.
+- **A Lambda function's "Current AWS Cost" always shows "usage-based — not collected"** — expected; real Lambda pricing needs invocation-count + GB-second CloudWatch metrics this version doesn't collect. Its GCP mapping (Cloud Run functions) and list price still show.
+- **GCP prices show "N/A" even with `GCP_BILLING_API_KEY` set** — confirm the "Cloud Billing API" is enabled on that key's GCP project (APIs & Services → Library). The Cloud SQL SKU matching in `lib/pricing/gcp-billing-catalog.ts` was verified and fixed against live SKU data (Google's own catalog inconsistently formats the vCPU vs RAM SKU descriptions for the same tier — `"Zonal - Enterprise N4 vCPU"` vs `"Zonal- Enterprise N4 RAM"`, no space before the second hyphen); if Google changes the wording again it'll need a matching update.
+- **AWS-side comparison pricing (EC2/RDS/S3) shows "N/A" even with AWS credentials configured** — this uses CloudShift-G's own AWS identity directly (not the tenant's assumed role, since price list data isn't tenant-scoped), and needs a separate `pricing:GetProducts` permission on that IAM user/role — it's not covered by the audit-role's read-only policy. Attach an inline policy granting `pricing:GetProducts` (resource `*`) to fix.
 
 ## Roadmap
 
-Comparisons, Migrations, Jobs, Audit Log, and the real GCP/Terraform/GKE integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.
+Migrations, Jobs, Audit Log, and the real GCP/Terraform/GKE integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.

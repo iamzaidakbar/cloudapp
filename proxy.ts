@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/auth/session";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/onboarding", "/settings", "/infrastructure", "/audits"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/onboarding",
+  "/settings",
+  "/infrastructure",
+  "/audits",
+  "/comparisons",
+];
 
 export const config = {
   matcher: [
@@ -11,6 +18,7 @@ export const config = {
     "/settings/:path*",
     "/infrastructure/:path*",
     "/audits/:path*",
+    "/comparisons/:path*",
     "/login",
   ],
 };
