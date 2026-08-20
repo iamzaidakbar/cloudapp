@@ -2,7 +2,7 @@
 
 CloudShift-G is an AWS → GCP migration and optimization platform. The application has a single **Admin** role — there is no tenant-member or platform-operator role in this product. "Tenant" in the data model refers to the organizational/AWS-account boundary, not a UI role.
 
-This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), and **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing). Later sections (Migrations, Jobs, Audit Log, and the GCP/Terraform/GKE integration) are not built yet — their sidebar links exist but 404 until each is implemented.
+This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), and **migration planning** (select resources from a comparison, create a plan, real admin approval gate). Terraform generation/execution, Jobs, Audit Log, and the real GCP/Terraform/GKE integration are not built yet — their sidebar links exist but 404 until each is implemented.
 
 ## Tech stack
 
@@ -71,6 +71,7 @@ app/
     audits/                  Audit run list + report (real-time polling, per-service progress)
     infrastructure/          Resource catalog (filters/search/pagination) + resource detail
     comparisons/             Comparison run list + report (AWS vs GCP cost table, real-time polling)
+    migrations/              Migration plan list + resource-selection form + plan detail (approve/cancel)
   api/
     auth/login, auth/logout  Session endpoints
     onboarding/tenant        Creates the (one) Tenant + its AwsConnection stub
@@ -83,6 +84,10 @@ app/
     infrastructure/[id]       One resource + its findings
     comparisons               Start/list comparison runs (sourced from the latest successful audit)
     comparisons/[id]           Poll one run's status + priced items
+    migrations                 Create/list migration plans (sourced from the latest successful comparison)
+    migrations/[id]             One plan + its resources
+    migrations/[id]/approve      Real approval gate
+    migrations/[id]/cancel       Discard a draft plan
     health, ready             Liveness / readiness (readiness pings Postgres)
     dashboard/summary        Real Prisma-backed dashboard data
 components/
@@ -92,10 +97,11 @@ components/
   audits/                   Run button, status badge, report view, findings panel
   infrastructure/           Filter bar, table, resource detail tabs
   comparisons/              Run button, runs table, report view, summary cards, items table
+  migrations/               Status badge, resource selector (checkboxes), runs table, resources table, summary cards, approve/cancel actions
   findings/                 Severity badge, findings table, filter bar (shared)
   aws/                      Connection status/summary, data-source (dev-adapter) badge
   shared/                   Cross-page data-table shell (pagination + empty-state switch), hydration-safe date/time
-  dashboard/                Summary cards, onboarding CTA, latest-audit/comparison summaries
+  dashboard/                Summary cards, onboarding CTA, latest-audit/comparison/migration summaries
   auth/                     Login form
   ui/                       shadcn/ui primitives
 lib/
@@ -106,7 +112,7 @@ lib/
   pricing/                  AWS Price List + GCP Billing Catalog fetchers, pricing cache, AWS<->GCP
                              instance mapping, dev adapter, comparison job runner
   db/with-tenant.ts         Row-level-security session context helper
-  tenant.ts, audits.ts, infrastructure.ts, comparisons.ts   Shared tenant/audit/resource/comparison read helpers
+  tenant.ts, audits.ts, infrastructure.ts, comparisons.ts, migrations.ts   Shared tenant/audit/resource/comparison/migration read+write helpers
   api/pagination.ts         Shared pagination query-param parsing
   validation/               Zod schemas
   db.ts, env.ts, decimal.ts, format.ts   Prisma client, validated env vars, serialization helpers
@@ -137,6 +143,11 @@ docker-compose.yml           Local Postgres
 | POST | `/api/comparisons` | Admin | Starts a real background comparison run against the latest successful audit (400 if none exists, 409 if one is already in progress) |
 | GET | `/api/comparisons` | Admin | Paginated comparison run history |
 | GET | `/api/comparisons/:id` | Admin | One run's status + priced items — the polling endpoint |
+| POST | `/api/migrations` | Admin | Creates a migration plan from selected comparison items (400 if no successful comparison exists, or if selection is empty/stale) |
+| GET | `/api/migrations` | Admin | Paginated migration plan history |
+| GET | `/api/migrations/:id` | Admin | One plan + its resources |
+| POST | `/api/migrations/:id/approve` | Admin | Real approval gate — 400 if the plan isn't `DRAFT` |
+| POST | `/api/migrations/:id/cancel` | Admin | Discards a `DRAFT` plan — 400 if already approved/cancelled |
 | GET | `/api/health` | — | Liveness (no DB dependency) |
 | GET | `/api/ready` | — | Readiness (real `SELECT 1` against Postgres) |
 
@@ -184,6 +195,14 @@ docker-compose.yml           Local Postgres
 20. RLS holds on `comparison_runs`/`comparison_items` the same way as `aws_connections` (see #9); `pricing_cache` is deliberately **not** tenant-scoped (public list pricing, identical for every tenant) and has no RLS policy.
 21. The dashboard's "Latest Comparison" card and Est. GCP Monthly Cost figure reflect the latest successful comparison run.
 
+**Migration Planning**
+22. `/migrations` requires a successful comparison first — "New Migration" is disabled with a tooltip until one exists with at least one non-VPC resource. `/migrations/new` lists every EC2/S3/RDS/Lambda item from the latest comparison (VPCs are excluded — not individually migratable) with checkboxes and a live-updating selection summary (count + total migration cost).
+23. Creating a plan is synchronous (no job/polling — it's a fast DB write from already-priced comparison data) and redirects straight to the plan detail page, showing `DRAFT` status, the selected resources, and cost totals.
+24. "Approve Migration" is a real gate: it records `approvedAt`/`approvedByAdminId`, and re-approving an already-approved (or cancelled) plan is rejected with 400, not silently accepted. "Cancel Plan" only works on `DRAFT` plans.
+25. Submitting an empty resource selection, or a `comparisonItemId` that isn't part of the current latest comparison run, is rejected with 400 rather than creating a broken plan.
+26. RLS holds on `migration_plans`/`migration_resources` the same way as `aws_connections` (see #9).
+27. The dashboard's "Latest Migration" card reflects the latest plan's status/cost, and `/migrations` lists all plans with correct statuses.
+
 ## Troubleshooting
 
 - **Port 5432 already in use** — stop any other local Postgres instance, or change the host port in `docker-compose.yml`.
@@ -199,7 +218,10 @@ docker-compose.yml           Local Postgres
 - **A Lambda function's "Current AWS Cost" always shows "usage-based — not collected"** — expected; real Lambda pricing needs invocation-count + GB-second CloudWatch metrics this version doesn't collect. Its GCP mapping (Cloud Run functions) and list price still show.
 - **GCP prices show "N/A" even with `GCP_BILLING_API_KEY` set** — confirm the "Cloud Billing API" is enabled on that key's GCP project (APIs & Services → Library). The Cloud SQL SKU matching in `lib/pricing/gcp-billing-catalog.ts` was verified and fixed against live SKU data (Google's own catalog inconsistently formats the vCPU vs RAM SKU descriptions for the same tier — `"Zonal - Enterprise N4 vCPU"` vs `"Zonal- Enterprise N4 RAM"`, no space before the second hyphen); if Google changes the wording again it'll need a matching update.
 - **AWS-side comparison pricing (EC2/RDS/S3) shows "N/A" even with AWS credentials configured** — this uses CloudShift-G's own AWS identity directly (not the tenant's assumed role, since price list data isn't tenant-scoped), and needs a separate `pricing:GetProducts` permission on that IAM user/role — it's not covered by the audit-role's read-only policy. Attach an inline policy granting `pricing:GetProducts` (resource `*`) to fix.
+- **"New Migration" is disabled** — a migration plan sources its resources from the latest **successful** comparison; run one first at `/comparisons`. If a comparison exists but only found VPCs, there's nothing selectable either (VPCs aren't individually migratable).
+- **A migration plan's costs all show "N/A"** — it inherited `costAvailable: false` from every one of its source comparison items (e.g. all-Lambda selections, or a comparison that ran on the dev adapter without cost data) — not a bug, the plan just has nothing priced to sum.
+- **Migration plan detail page doesn't show a "Provision"/"Execute" button** — expected in this build; Terraform generation and actual execution are a later phase. A `DRAFT`/`APPROVED` plan is real and persisted, just not yet actionable beyond approval.
 
 ## Roadmap
 
-Migrations, Jobs, Audit Log, and the real GCP/Terraform/GKE integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.
+Terraform generation + isolated execution, Jobs, Audit Log, and the real GCP/Terraform/GKE integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.

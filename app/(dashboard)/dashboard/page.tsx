@@ -4,9 +4,11 @@ import { EmptyState } from "@/components/empty-state";
 import { OnboardingCta } from "@/components/dashboard/onboarding-cta";
 import { LatestAuditSummary } from "@/components/dashboard/latest-audit-summary";
 import { LatestComparisonSummary } from "@/components/dashboard/latest-comparison-summary";
+import { LatestMigrationSummary } from "@/components/dashboard/latest-migration-summary";
 import { getTenantWithConnection, isOnboardingComplete } from "@/lib/tenant";
 import { listAuditRuns } from "@/lib/audits";
 import { getLatestComparisonRun } from "@/lib/comparisons";
+import { getLatestMigrationPlan } from "@/lib/migrations";
 
 export default async function DashboardPage() {
   const { tenant, connection } = await getTenantWithConnection();
@@ -16,6 +18,7 @@ export default async function DashboardPage() {
     ? (await listAuditRuns(tenant!.id, 0, 1)).items[0] ?? null
     : null;
   const latestComparisonRun = connected ? await getLatestComparisonRun(tenant!.id) : null;
+  const latestMigrationPlan = connected ? await getLatestMigrationPlan(tenant!.id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,6 +37,7 @@ export default async function DashboardPage() {
         <>
           <LatestAuditSummary auditRun={latestAuditRun} />
           {latestComparisonRun ? <LatestComparisonSummary comparisonRun={latestComparisonRun} /> : null}
+          {latestMigrationPlan ? <LatestMigrationSummary migrationPlan={latestMigrationPlan} /> : null}
         </>
       ) : (
         <EmptyState

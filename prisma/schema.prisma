@@ -41,6 +41,7 @@ model Tenant {
   awsConnection  AwsConnection?
   auditRuns      AuditRun[]
   comparisonRuns ComparisonRun[]
+  migrationPlans MigrationPlan[]
 
   @@map("tenants")
 }
@@ -308,4 +309,68 @@ model PricingCache {
   @@unique([provider, cacheKey])
   @@index([expiresAt])
   @@map("pricing_cache")
+}
+
+enum MigrationPlanStatus {
+  DRAFT
+  APPROVED
+  CANCELLED
+}
+
+// Sourced from the latest SUCCEEDED ComparisonRun's items — deliberately NOT
+// modeled as a job (no QUEUED/RUNNING/SUCCEEDED lifecycle, no AuditRun-style
+// serviceStatuses): creating and approving a plan are synchronous DB writes,
+// not background work. The generic-Job-table question this codebase has
+// deferred twice becomes relevant again once actual Terraform
+// execution/data-transfer exists (a real long-running job) — not here.
+model MigrationPlan {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  sequenceNumber        Int
+  status                MigrationPlanStatus @default(DRAFT)
+  sourceComparisonRunId String
+
+  resourceCount           Int
+  estimatedMigrationCost  Decimal? @db.Decimal(12, 2)
+  estimatedAwsMonthlyCost Decimal? @db.Decimal(12, 2)
+  estimatedGcpMonthlyCost Decimal? @db.Decimal(12, 2)
+  costDataAvailable       Boolean  @default(false)
+
+  approvedAt        DateTime?
+  approvedByAdminId String?
+  cancelledAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resources MigrationResource[]
+
+  @@unique([tenantId, sequenceNumber])
+  @@index([tenantId, status])
+  @@map("migration_plans")
+}
+
+model MigrationResource {
+  id              String        @id @default(cuid())
+  tenantId        String
+  migrationPlanId String
+  migrationPlan   MigrationPlan @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  comparisonItemId String // plain reference, not a relation — same convention as ComparisonItem.auditResourceId
+  awsService       AwsServiceType
+  awsResourceId    String
+  awsResourceName  String?
+  region           String
+  awsSizeLabel     String?
+  gcpService       String
+  gcpSizeLabel     String?
+  estimatedMigrationCost Decimal? @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([migrationPlanId, awsResourceId])
+  @@index([tenantId, awsService])
+  @@map("migration_resources")
 }
