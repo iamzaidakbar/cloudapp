@@ -4,6 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { CopyButton } from "@/components/copy-button";
 import { ResourceStatusBadge } from "@/components/infrastructure/resource-status-badge";
 import { DataSourceBadge } from "@/components/aws/data-source-badge";
+import { FadeIn } from "@/components/motion/fade-in";
 import type { AwsServiceType, VerificationSource } from "@/lib/generated/prisma/client";
 
 const SERVICE_LABEL: Record<AwsServiceType, string> = {
@@ -39,7 +40,7 @@ export function ResourceIdentityHeader({
   dataSource,
 }: ResourceIdentityHeaderProps) {
   return (
-    <div className="flex flex-col gap-3">
+    <FadeIn delayMs={0} className="flex flex-col gap-3">
       <Link href="/infrastructure" className={buttonVariants({ variant: "ghost", size: "sm" })}>
         <ArrowLeft className="size-3.5" />
         Infrastructure
@@ -68,6 +69,6 @@ export function ResourceIdentityHeader({
           Environment: <span className="text-foreground">{environment ?? "—"}</span>
         </span>
       </div>
-    </div>
+    </FadeIn>
   );
 }

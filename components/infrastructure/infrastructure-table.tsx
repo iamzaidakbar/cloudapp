@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ResourceStatusBadge } from "@/components/infrastructure/resource-status-badge";
 import { DataSourceBadge } from "@/components/aws/data-source-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
@@ -55,38 +56,54 @@ export function InfrastructureTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((resource) => {
+        {items.map((resource, index) => {
           const tagCount = Object.keys(resource.tags).length;
           return (
             <TableRow key={resource.id} className="relative">
-              <TableCell className="text-muted-foreground">{SERVICE_LABEL[resource.service]}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1.5">
-                  <Link
-                    href={`/infrastructure/${resource.id}`}
-                    className="font-medium text-foreground after:absolute after:inset-0 hover:underline"
-                  >
-                    {resource.name ?? resource.resourceId}
-                  </Link>
-                  {dataSource ? <DataSourceBadge dataSource={dataSource} compact /> : null}
-                </div>
-                <p className="font-mono text-xs text-muted-foreground">{resource.resourceId}</p>
-              </TableCell>
-              <TableCell className="font-mono text-xs">{resource.region}</TableCell>
-              <TableCell>
-                <ResourceStatusBadge status={resource.status} />
-              </TableCell>
-              <TableCell className="text-muted-foreground">{resource.environment ?? "—"}</TableCell>
               <TableCell className="text-muted-foreground">
-                {tagCount > 0 ? `${tagCount} tag${tagCount === 1 ? "" : "s"}` : "—"}
+                <StaggerItem index={index}>{SERVICE_LABEL[resource.service]}</StaggerItem>
               </TableCell>
               <TableCell>
-                {resource.costAvailable && resource.monthlyCost !== null
-                  ? formatCurrency(resource.monthlyCost)
-                  : "—"}
+                <StaggerItem index={index}>
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/infrastructure/${resource.id}`}
+                      className="font-medium text-foreground after:absolute after:inset-0 hover:underline"
+                    >
+                      {resource.name ?? resource.resourceId}
+                    </Link>
+                    {dataSource ? <DataSourceBadge dataSource={dataSource} compact /> : null}
+                  </div>
+                  <p className="font-mono text-xs text-muted-foreground">{resource.resourceId}</p>
+                </StaggerItem>
+              </TableCell>
+              <TableCell className="font-mono text-xs">
+                <StaggerItem index={index}>{resource.region}</StaggerItem>
+              </TableCell>
+              <TableCell>
+                <StaggerItem index={index}>
+                  <ResourceStatusBadge status={resource.status} />
+                </StaggerItem>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                <StaggerItem index={index}>{resource.environment ?? "—"}</StaggerItem>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                <StaggerItem index={index}>
+                  {tagCount > 0 ? `${tagCount} tag${tagCount === 1 ? "" : "s"}` : "—"}
+                </StaggerItem>
+              </TableCell>
+              <TableCell>
+                <StaggerItem index={index}>
+                  {resource.costAvailable && resource.monthlyCost !== null
+                    ? formatCurrency(resource.monthlyCost)
+                    : "—"}
+                </StaggerItem>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
-                <FormattedDateTime value={resource.createdAt} />
+                <StaggerItem index={index}>
+                  <FormattedDateTime value={resource.createdAt} />
+                </StaggerItem>
               </TableCell>
             </TableRow>
           );

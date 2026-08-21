@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { JobTypeBadge } from "@/components/jobs/job-type-badge";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import type { JobRow } from "@/lib/jobs";
 
 // AUDIT/COMPARISON each have their own detail page, so the # column links
@@ -31,39 +32,51 @@ export function JobsTable({ jobs }: { jobs: JobRow[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {jobs.map((job) => {
+        {jobs.map((job, index) => {
           const detailHref = ownDetailHref(job);
           return (
             <TableRow key={`${job.type}-${job.id}`}>
               <TableCell>
-                <JobTypeBadge type={job.type} />
+                <StaggerItem index={index}>
+                  <JobTypeBadge type={job.type} />
+                </StaggerItem>
               </TableCell>
               <TableCell className="font-mono text-xs">
-                {detailHref ? (
-                  <Link href={detailHref} className="hover:underline">
-                    #{job.version}
-                  </Link>
-                ) : (
-                  `#${job.version}`
-                )}
+                <StaggerItem index={index}>
+                  {detailHref ? (
+                    <Link href={detailHref} className="hover:underline">
+                      #{job.version}
+                    </Link>
+                  ) : (
+                    `#${job.version}`
+                  )}
+                </StaggerItem>
               </TableCell>
               <TableCell>
-                <JobStatusBadge status={job.status} />
+                <StaggerItem index={index}>
+                  <JobStatusBadge status={job.status} />
+                </StaggerItem>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
-                {job.startedAt ? <FormattedDateTime value={job.startedAt} /> : "—"}
+                <StaggerItem index={index}>
+                  {job.startedAt ? <FormattedDateTime value={job.startedAt} /> : "—"}
+                </StaggerItem>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
-                {job.finishedAt ? <FormattedDateTime value={job.finishedAt} /> : "—"}
+                <StaggerItem index={index}>
+                  {job.finishedAt ? <FormattedDateTime value={job.finishedAt} /> : "—"}
+                </StaggerItem>
               </TableCell>
               <TableCell className="text-xs">
-                {job.migrationPlanId ? (
-                  <Link href={`/migrations/${job.migrationPlanId}`} className="text-muted-foreground hover:underline">
-                    Migration #{job.migrationPlanSequenceNumber ?? "?"}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
+                <StaggerItem index={index}>
+                  {job.migrationPlanId ? (
+                    <Link href={`/migrations/${job.migrationPlanId}`} className="text-muted-foreground hover:underline">
+                      Migration #{job.migrationPlanSequenceNumber ?? "?"}
+                    </Link>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </StaggerItem>
               </TableCell>
             </TableRow>
           );
