@@ -15,15 +15,21 @@ export function ResourceMetadataTab({
   collectedAt,
 }: ResourceMetadataTabProps) {
   return (
-    <div className="flex flex-col gap-3 pt-4">
-      <p className="text-sm text-muted-foreground">
-        Collected by{" "}
-        <Link href={`/audits/${auditRunId}`} className="text-foreground hover:underline">
-          audit run #{auditRunVersion}
-        </Link>{" "}
-        on <FormattedDateTime value={collectedAt} />.
-      </p>
-      <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">
+    <div className="flex flex-col gap-4">
+      <div>
+        <h2 className="text-sm font-semibold tracking-tight">Metadata</h2>
+        <p className="text-xs text-muted-foreground">
+          Collected by{" "}
+          <Link
+            href={`/audits/${auditRunId}`}
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            audit run #{auditRunVersion}
+          </Link>{" "}
+          on <FormattedDateTime value={collectedAt} />.
+        </p>
+      </div>
+      <pre className="max-h-[28rem] overflow-auto border border-border bg-muted/30 p-4 font-mono text-xs leading-relaxed">
         {JSON.stringify(rawConfig, null, 2)}
       </pre>
     </div>

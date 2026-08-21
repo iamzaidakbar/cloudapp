@@ -4,7 +4,11 @@ import { getInfrastructureResource } from "@/lib/infrastructure";
 import { ResourceIdentityHeader } from "@/components/infrastructure/resource-identity-header";
 import { ResourceDetailTabs } from "@/components/infrastructure/resource-detail-tabs";
 
-export default async function ResourceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ResourceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const admin = await requireTenantScope();
 
@@ -12,7 +16,7 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
   if (!resource) notFound();
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <ResourceIdentityHeader
         service={resource.service}
         name={resource.name}

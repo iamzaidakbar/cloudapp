@@ -59,7 +59,20 @@ export async function listInfrastructureResources(
 ) {
   const auditRun = await getLatestSucceededAuditRun(tenantId);
   if (!auditRun) {
-    return { items: [], total: 0, auditRun: null, filterOptions: { services: [], regions: [], statuses: [] } };
+    return {
+      items: [],
+      total: 0,
+      auditRun: null,
+      filterOptions: { services: [], regions: [], statuses: [] },
+      inventoryStats: {
+        totalResources: 0,
+        serviceCount: 0,
+        regionCount: 0,
+        estimatedMonthlyCost: null as number | null,
+        costSampleCount: 0,
+        serviceBreakdown: [] as { service: AwsServiceType; count: number }[],
+      },
+    };
   }
 
   const where = buildResourceWhere(tenantId, auditRun.id, filters);
@@ -70,7 +83,13 @@ export async function listInfrastructureResources(
       tx.auditResource.count({ where }),
       tx.auditResource.findMany({
         where: { tenantId, auditRunId: auditRun.id },
-        select: { service: true, region: true, status: true },
+        select: {
+          service: true,
+          region: true,
+          status: true,
+          monthlyCost: true,
+          costAvailable: true,
+        },
       }),
     ]),
   );
@@ -78,10 +97,40 @@ export async function listInfrastructureResources(
   const filterOptions = {
     services: Array.from(new Set(allForRun.map((r) => r.service))).sort(),
     regions: Array.from(new Set(allForRun.map((r) => r.region))).sort(),
-    statuses: Array.from(new Set(allForRun.map((r) => r.status).filter((s): s is string => Boolean(s)))).sort(),
+    statuses: Array.from(
+      new Set(allForRun.map((r) => r.status).filter((s): s is string => Boolean(s))),
+    ).sort(),
   };
 
-  return { items: items.map(serializeResource), total, auditRun, filterOptions };
+  const serviceCounts = new Map<AwsServiceType, number>();
+  let estimatedMonthlyCost = 0;
+  let costSampleCount = 0;
+  for (const row of allForRun) {
+    serviceCounts.set(row.service, (serviceCounts.get(row.service) ?? 0) + 1);
+    if (row.costAvailable && row.monthlyCost !== null) {
+      estimatedMonthlyCost += Number(row.monthlyCost);
+      costSampleCount += 1;
+    }
+  }
+
+  const inventoryStats = {
+    totalResources: allForRun.length,
+    serviceCount: serviceCounts.size,
+    regionCount: filterOptions.regions.length,
+    estimatedMonthlyCost: costSampleCount > 0 ? estimatedMonthlyCost : null,
+    costSampleCount,
+    serviceBreakdown: Array.from(serviceCounts.entries())
+      .map(([service, count]) => ({ service, count }))
+      .sort((a, b) => b.count - a.count),
+  };
+
+  return {
+    items: items.map(serializeResource),
+    total,
+    auditRun,
+    filterOptions,
+    inventoryStats,
+  };
 }
 
 export async function getInfrastructureResource(tenantId: string, id: string) {

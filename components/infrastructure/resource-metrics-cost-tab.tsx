@@ -1,5 +1,4 @@
 import { DollarSign, Cpu } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 
 type ResourceMetricsCostTabProps = {
@@ -13,40 +12,71 @@ export function ResourceMetricsCostTab({
   costAvailable,
   cpuUtilizationAvgPercent,
 }: ResourceMetricsCostTabProps) {
+  const cpu =
+    cpuUtilizationAvgPercent !== null
+      ? Math.min(100, Math.max(0, cpuUtilizationAvgPercent))
+      : null;
+
   return (
-    <div className="grid grid-cols-1 gap-3 pt-4 sm:grid-cols-2">
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <DollarSign className="size-4" />
-            Estimated Monthly Cost
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">
-            {costAvailable && monthlyCost !== null ? formatCurrency(monthlyCost) : "Unavailable"}
+    <div className="flex flex-col gap-4">
+      <div>
+        <h2 className="text-sm font-semibold tracking-tight">
+          Metrics & cost
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Estimated spend and utilization signals from the audit snapshot
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col justify-between border border-border bg-background/50 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Estimated monthly cost
+            </p>
+            <DollarSign className="size-4 text-muted-foreground" />
+          </div>
+          <p className="mt-4 text-3xl font-semibold tracking-tight tabular-nums">
+            {costAvailable && monthlyCost !== null
+              ? formatCurrency(monthlyCost)
+              : "Unavailable"}
           </p>
           {!costAvailable ? (
-            <p className="text-xs text-muted-foreground">
-              Per-resource cost requires Cost Explorer with resource-level granularity.
+            <p className="mt-2 text-xs text-muted-foreground">
+              Per-resource cost requires Cost Explorer with resource-level
+              granularity.
             </p>
-          ) : null}
-        </CardContent>
-      </Card>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              From Cost Explorer at collection time
+            </p>
+          )}
+        </div>
 
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <Cpu className="size-4" />
-            Avg CPU Utilization (14d)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">
-            {cpuUtilizationAvgPercent !== null ? `${cpuUtilizationAvgPercent.toFixed(1)}%` : "N/A"}
+        <div className="flex flex-col justify-between border border-border bg-background/50 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Avg CPU utilization (14d)
+            </p>
+            <Cpu className="size-4 text-muted-foreground" />
+          </div>
+          <p className="mt-4 text-3xl font-semibold tracking-tight tabular-nums">
+            {cpu !== null ? `${cpu.toFixed(1)}%` : "N/A"}
           </p>
-        </CardContent>
-      </Card>
+          {cpu !== null ? (
+            <div className="mt-3 h-1.5 w-full bg-muted">
+              <div
+                className="h-full bg-foreground transition-[width]"
+                style={{ width: `${cpu}%` }}
+              />
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              No CloudWatch CPU series for this resource type
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
