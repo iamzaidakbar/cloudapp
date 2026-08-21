@@ -3,12 +3,14 @@ import { getTenantWithConnection } from "@/lib/tenant";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getLatestApplyRun } from "@/lib/apply-runs";
+import { getLatestVerificationRun } from "@/lib/verification-runs";
 import { MigrationStatusBadge } from "@/components/migrations/migration-status-badge";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
 import { PlanActions } from "@/components/migrations/plan-actions";
 import { TerraformPanel } from "@/components/migrations/terraform-panel";
 import { ApplyPanel } from "@/components/migrations/apply-panel";
+import { VerificationPanel } from "@/components/migrations/verification-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -23,6 +25,7 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   const terraformRun = plan.status === "APPROVED" ? await getLatestTerraformRun(tenant.id, id) : null;
   const applyRun = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded ? await getLatestApplyRun(tenant.id, id) : null;
   const canExecute = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded === true;
+  const verificationRun = applyRun?.status === "SUCCEEDED" ? await getLatestVerificationRun(tenant.id, id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,6 +84,10 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
       ) : null}
 
       {canExecute ? <ApplyPanel migrationPlanId={plan.id} initialApplyRun={applyRun} /> : null}
+
+      {applyRun?.status === "SUCCEEDED" ? (
+        <VerificationPanel migrationPlanId={plan.id} initialVerificationRun={verificationRun} />
+      ) : null}
     </div>
   );
 }

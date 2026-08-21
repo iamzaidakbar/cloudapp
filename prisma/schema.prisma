@@ -44,6 +44,7 @@ model Tenant {
   migrationPlans MigrationPlan[]
   terraformRuns  TerraformRun[]
   applyRuns      ApplyRun[]
+  verificationRuns VerificationRun[]
 
   @@map("tenants")
 }
@@ -350,6 +351,7 @@ model MigrationPlan {
   resources     MigrationResource[]
   terraformRuns TerraformRun[]
   applyRuns     ApplyRun[]
+  verificationRuns VerificationRun[]
 
   @@unique([tenantId, sequenceNumber])
   @@index([tenantId, status])
@@ -379,6 +381,8 @@ model MigrationResource {
   provisionedAt       DateTime?
 
   createdAt DateTime @default(now())
+
+  verificationChecks VerificationCheck[]
 
   @@unique([migrationPlanId, awsResourceId])
   @@index([tenantId, awsService])
@@ -471,4 +475,53 @@ model ApplyRun {
   @@unique([migrationPlanId, version])
   @@index([tenantId, status])
   @@map("apply_runs")
+}
+
+enum VerificationStatus {
+  HEALTHY
+  UNHEALTHY
+  UNAVAILABLE
+}
+
+// Deliberately synchronous, unlike every prior job-shaped model above: a
+// verification check is a handful of fast GCP REST GETs (sub-few-seconds),
+// not a real long-running process, so there's no QUEUED/RUNNING lifecycle
+// here — a run is created with its checks already complete. Re-queries each
+// resource's real live status at click time (via the same Application
+// Default Credentials terraform apply already relies on, see lib/gcp/auth.ts)
+// rather than trusting the ApplyRun's outcome from whenever it ran — those
+// are different claims (created successfully once vs. healthy right now).
+model VerificationRun {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  migrationPlanId String
+  migrationPlan   MigrationPlan @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  version   Int
+  checkedAt DateTime @default(now())
+
+  checks VerificationCheck[]
+
+  @@unique([migrationPlanId, version])
+  @@index([tenantId])
+  @@map("verification_runs")
+}
+
+model VerificationCheck {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  verificationRunId   String
+  verificationRun     VerificationRun   @relation(fields: [verificationRunId], references: [id], onDelete: Cascade)
+  migrationResourceId String
+  migrationResource   MigrationResource @relation(fields: [migrationResourceId], references: [id], onDelete: Cascade)
+
+  status VerificationStatus
+  // The real reported state string ("RUNNING", "RUNNABLE", "404 Not Found",
+  // etc.) or error detail — never synthesized, always what GCP actually said.
+  detail     String?
+  checkedRef String? // the exact URL queried, for transparency
+
+  @@index([tenantId, verificationRunId])
+  @@map("verification_checks")
 }
