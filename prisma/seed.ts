@@ -6,14 +6,17 @@ import { hashPassword } from "../lib/auth/password";
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
+// Seeds only the Platform Operator — the one role that can never self-register
+// (they have no tenant to register). Tenant Admins are created going forward
+// via the self-service registration flow (POST /api/auth/register), not here.
 async function main() {
-  const email = process.env.ADMIN_EMAIL;
-  const password = process.env.ADMIN_PASSWORD;
-  const name = process.env.ADMIN_NAME;
+  const email = process.env.PLATFORM_OPERATOR_EMAIL;
+  const password = process.env.PLATFORM_OPERATOR_PASSWORD;
+  const name = process.env.PLATFORM_OPERATOR_NAME;
 
   if (!email || !password) {
     throw new Error(
-      "ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env to seed the admin user.",
+      "PLATFORM_OPERATOR_EMAIL and PLATFORM_OPERATOR_PASSWORD must be set in .env to seed the platform operator.",
     );
   }
 
@@ -21,11 +24,11 @@ async function main() {
 
   const admin = await prisma.admin.upsert({
     where: { email },
-    update: { passwordHash, name: name ?? undefined },
-    create: { email, passwordHash, name },
+    update: { passwordHash, name: name ?? undefined, role: "PLATFORM_OPERATOR", tenantId: null },
+    create: { email, passwordHash, name, role: "PLATFORM_OPERATOR" },
   });
 
-  console.log(`Seeded admin: ${admin.email}`);
+  console.log(`Seeded platform operator: ${admin.email}`);
 }
 
 main()

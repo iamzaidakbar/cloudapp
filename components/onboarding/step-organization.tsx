@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { tenantSchema, type TenantInput } from "@/lib/validation/onboarding";
+import { registerSchema, type RegisterInput } from "@/lib/validation/onboarding";
 import type { Tenant, AwsConnection } from "@/lib/generated/prisma/client";
 
 type StepOrganizationProps = {
@@ -23,12 +23,12 @@ export function StepOrganization({ onCreated }: StepOrganizationProps) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<TenantInput>({ resolver: zodResolver(tenantSchema) });
+  } = useForm<RegisterInput>({ resolver: zodResolver(registerSchema) });
 
-  async function onSubmit(values: TenantInput) {
+  async function onSubmit(values: RegisterInput) {
     setServerError(null);
 
-    const response = await fetch("/api/onboarding/tenant", {
+    const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
@@ -46,9 +46,10 @@ export function StepOrganization({ onCreated }: StepOrganizationProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Organization</CardTitle>
+        <CardTitle>Register your organization</CardTitle>
         <CardDescription>
-          Name the organization CloudShift-G will manage the AWS→GCP migration for.
+          Create your organization and its first Tenant Admin account — the admin who connects your AWS account
+          and approves migrations.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -60,15 +61,47 @@ export function StepOrganization({ onCreated }: StepOrganizationProps) {
           ) : null}
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="name">Organization name</Label>
+            <Label htmlFor="organizationName">Organization name</Label>
             <Input
-              id="name"
+              id="organizationName"
               placeholder="Acme Corp"
-              aria-invalid={Boolean(errors.name)}
-              {...register("name")}
+              aria-invalid={Boolean(errors.organizationName)}
+              {...register("organizationName")}
             />
-            {errors.name ? (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
+            {errors.organizationName ? (
+              <p className="text-xs text-destructive">{errors.organizationName.message}</p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="adminName">Your name</Label>
+            <Input id="adminName" placeholder="Jane Doe" {...register("adminName")} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="adminEmail">Your email</Label>
+            <Input
+              id="adminEmail"
+              type="email"
+              placeholder="jane@acme.com"
+              aria-invalid={Boolean(errors.adminEmail)}
+              {...register("adminEmail")}
+            />
+            {errors.adminEmail ? (
+              <p className="text-xs text-destructive">{errors.adminEmail.message}</p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="adminPassword">Password</Label>
+            <Input
+              id="adminPassword"
+              type="password"
+              aria-invalid={Boolean(errors.adminPassword)}
+              {...register("adminPassword")}
+            />
+            {errors.adminPassword ? (
+              <p className="text-xs text-destructive">{errors.adminPassword.message}</p>
             ) : null}
           </div>
 

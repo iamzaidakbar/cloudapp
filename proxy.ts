@@ -2,25 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/auth/session";
 
+// /onboarding is deliberately NOT here — step 1 of the wizard is public
+// self-service registration (creates the very first session), so it can't
+// require one to already exist. Steps 2/3 are gated inside the page/layout
+// itself once a session exists, same as everywhere else in this app.
 const PROTECTED_PREFIXES = [
   "/dashboard",
-  "/onboarding",
   "/settings",
   "/infrastructure",
   "/audits",
   "/comparisons",
   "/migrations",
+  "/jobs",
+  "/audit-log",
+  "/platform",
 ];
 
 export const config = {
   matcher: [
     "/dashboard/:path*",
-    "/onboarding",
     "/settings/:path*",
     "/infrastructure/:path*",
     "/audits/:path*",
     "/comparisons/:path*",
     "/migrations/:path*",
+    "/jobs/:path*",
+    "/audit-log/:path*",
+    "/platform/:path*",
     "/login",
   ],
 };

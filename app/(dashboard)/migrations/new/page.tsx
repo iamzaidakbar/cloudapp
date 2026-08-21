@@ -1,15 +1,18 @@
 import { redirect } from "next/navigation";
 import { ArrowRightLeft } from "lucide-react";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getSelectableComparisonItems } from "@/lib/migrations";
 import { ResourceSelector } from "@/components/migrations/resource-selector";
 import { EmptyState } from "@/components/empty-state";
 
 export default async function NewMigrationPage() {
-  const { tenant } = await getTenantWithConnection();
-  if (!tenant) redirect("/migrations");
+  const admin = await requireTenantScope();
+  // Creating a migration plan is Tenant Admin's remit — Tenant Member is
+  // read-only per the spec ("read-only access to their tenant's audits and
+  // reports"); bounce them back to the list rather than showing this form.
+  if (admin.role !== "TENANT_ADMIN") redirect("/migrations");
 
-  const selectable = await getSelectableComparisonItems(tenant.id);
+  const selectable = await getSelectableComparisonItems(admin.tenantId);
 
   return (
     <div className="flex flex-col gap-4">

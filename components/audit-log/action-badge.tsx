@@ -21,6 +21,7 @@ const ACTION_CLASS: Record<AdminActionTypeValue, string> = {
   MIGRATION_APPLIED: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
   VERIFICATION_RUN: "bg-teal-500/15 text-teal-600 dark:text-teal-400",
   MIGRATION_ROLLED_BACK: "bg-destructive/15 text-destructive",
+  TEAM_MEMBER_ADDED: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
 };
 
 export function ActionBadge({ action }: { action: AdminActionTypeValue }) {

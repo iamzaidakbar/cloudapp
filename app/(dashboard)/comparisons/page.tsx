@@ -1,4 +1,5 @@
 import { GitCompare } from "lucide-react";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { getActiveComparisonRun, getLatestSucceededAuditRun, listComparisonRuns } from "@/lib/comparisons";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
@@ -13,7 +14,8 @@ export default async function ComparisonsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const { tenant, connection } = await getTenantWithConnection();
+  const admin = await requireTenantScope();
+  const { tenant, connection } = await getTenantWithConnection(admin.tenantId);
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -22,11 +24,11 @@ export default async function ComparisonsPage({
   );
   const { page, pageSize, skip, take } = parsePagination(urlSearchParams);
 
-  const { items, total } = tenant ? await listComparisonRuns(tenant.id, skip, take) : { items: [], total: 0 };
+  const { items, total } = await listComparisonRuns(admin.tenantId, skip, take);
   const meta = paginationMeta(page, pageSize, total);
 
-  const activeRun = tenant ? await getActiveComparisonRun(tenant.id) : null;
-  const successfulAudit = tenant ? await getLatestSucceededAuditRun(tenant.id) : null;
+  const activeRun = await getActiveComparisonRun(admin.tenantId);
+  const successfulAudit = await getLatestSucceededAuditRun(admin.tenantId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,7 +39,7 @@ export default async function ComparisonsPage({
             AWS vs GCP service mapping and cost comparison for {tenant?.name ?? "your organization"}.
           </p>
         </div>
-        {tenant && connection?.status === "CONNECTED" ? (
+        {admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
           <RunComparisonButton
             hasActiveRun={Boolean(activeRun)}
             activeRunStartedAt={activeRun?.startedAt}

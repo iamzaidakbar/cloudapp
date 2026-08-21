@@ -1,14 +1,14 @@
 # CloudShift-G
 
-CloudShift-G is an AWS → GCP migration and optimization platform. The application has a single **Admin** role — there is no tenant-member or platform-operator role in this product. "Tenant" in the data model refers to the organizational/AWS-account boundary, not a UI role.
+CloudShift-G is an enterprise-grade, **multi-tenant** AWS → GCP migration and optimization platform. Any number of customer organizations ("tenants") can register independently and connect their own AWS account; each tenant's data — inventory, reports, jobs, and logs — is isolated from every other tenant at the data, API, and job layers (PostgreSQL row-level security + explicit tenant scoping on every query, not just frontend visibility). Three roles: **Tenant Admin** (connects the AWS account, runs audits, views reports, approves and triggers migrations), **Tenant Member** (read-only access to their own tenant's audits and reports), and **Platform Operator** (a superuser with no tenant of their own — sees every tenant's non-credential metadata, never AWS role ARNs or external IDs). Registration is self-service at `/onboarding` — no manual DB inserts.
 
-This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **tenant onboarding + AWS connection management**, **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), **migration planning** (select resources from a comparison, create a plan, real admin approval gate), **Terraform generation** (real HCL generation + a real `terraform validate`/`plan` against your actual GCP project), **migration execution** (a real `terraform apply` — this genuinely provisions billable GCP infrastructure), **verification** (real, live GCP REST health checks confirming provisioned resources are genuinely healthy right now, not just that they were created successfully), **rollback** (a real `terraform destroy`, gated behind a typed confirmation, with Cloud SQL's `deletion_protection` handled automatically), **Jobs** (a tenant-wide history feed across every audit/comparison/Terraform/apply/verification/rollback run), and **Audit Log** (a record of every admin action — who did what, when, including failed login attempts — distinct from both AWS Infrastructure Auditing and Job History). Data transfer/cutover and the real GKE deployment integration are not built yet — their sidebar links exist but 404 until each is implemented.
+This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **multi-tenant self-service onboarding + AWS connection management** (register an org, connect its AWS account, no admin gate or one-tenant cap), **role-based access control** (Tenant Admin / Tenant Member / Platform Operator, enforced at the API layer via a small set of `requireX()` guards — never frontend-only — plus a `POST /api/team` endpoint for adding a second Admin or a Member to an existing tenant), **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), **migration planning** (select resources from a comparison, create a plan, real Tenant Admin approval gate), **Terraform generation** (real HCL generation + a real `terraform validate`/`plan` against your actual GCP project), **migration execution** (a real `terraform apply` — this genuinely provisions billable GCP infrastructure), **verification** (real, live GCP REST health checks confirming provisioned resources are genuinely healthy right now, not just that they were created successfully), **rollback** (a real `terraform destroy`, gated behind a typed confirmation, with Cloud SQL's `deletion_protection` handled automatically), **Jobs** (a tenant-scoped history feed across every audit/comparison/Terraform/apply/verification/rollback run), and **Audit Log** (a record of every admin action — who did what, when, including failed login attempts — distinct from both AWS Infrastructure Auditing and Job History). Data transfer/cutover and the real GKE deployment integration are not built yet — their sidebar links exist but 404 until each is implemented.
 
 ## Tech stack
 
 - Next.js (App Router) + TypeScript
 - shadcn/ui + Tailwind CSS, Ubuntu / Ubuntu Mono typography, dark mode
-- PostgreSQL + Prisma (`@prisma/adapter-pg` driver adapter) with row-level security for tenant isolation
+- PostgreSQL + Prisma (`@prisma/adapter-pg` driver adapter) with row-level security for tenant isolation — every tenant-scoped table is `FORCE ROW LEVEL SECURITY`'d, the app connects as a real restricted, non-superuser DB role (`cloudshiftg_app`) that RLS actually applies to, and `tenantId` is always derived from the authenticated admin's own session (`admin.tenantId`), never a request param or a "the current tenant" lookup
 - `iron-session` for authentication (encrypted, `httpOnly` session cookie)
 - `@aws-sdk/client-sts` for real cross-account AWS role verification, with a clearly-labeled simulated dev adapter for local testing without an AWS account
 - `@aws-sdk/client-{ec2,s3,rds,lambda,elastic-load-balancing-v2,iam,cloudwatch-logs,cloudwatch,cost-explorer}` for real multi-service AWS infrastructure inventory, using the same short-lived assumed-role credentials, plus the same dev-adapter pattern for local testing
@@ -37,7 +37,7 @@ Fill in `.env`:
 | `DATABASE_URL` | Postgres connection string for the Prisma CLI (migrate/studio/seed) — the bootstrap superuser role. |
 | `APP_DATABASE_URL` | Postgres connection string the **running app** uses at runtime — a separate, unprivileged role, required so row-level security policies actually apply (the bootstrap superuser always bypasses RLS). |
 | `SESSION_SECRET` | ≥32-char random string used to encrypt the session cookie. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Credentials for the first (and only) Admin account. There is no signup flow — this account is created by the seed script. |
+| `PLATFORM_OPERATOR_EMAIL` / `PLATFORM_OPERATOR_PASSWORD` / `PLATFORM_OPERATOR_NAME` | Credentials for the Platform Operator account — the one role that can never self-register (it has no tenant of its own), so it's created by the seed script. Tenant Admins register themselves at `/onboarding` — no seed step needed for them. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` / `AWS_REGION` | Optional. CloudShift-G's own AWS identity, used only to call `sts:AssumeRole` against a tenant-provided role ARN. Leave unset to use the simulated dev adapter. |
 | `AWS_COST_EXPLORER_ENABLED` | Optional, defaults to unset (off). Cost Explorer's `GetCostAndUsage` costs a small real fee per API call and needs up to 24h to populate on a fresh account — it's never called just because AWS credentials are configured. Set to `"true"` to opt in once you're ready. |
 | `GCP_BILLING_API_KEY` | Optional. An API key for any GCP project with the "Cloud Billing API" enabled — used only to read public GCP list pricing for the comparison feature (global public pricing, not tied to a specific billing account; no OAuth/service account needed). Leave unset to use the simulated dev adapter for GCP pricing. AWS-side comparison pricing needs no separate credential — it reuses `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` above (a direct call, not cross-account, since price list data isn't tenant-scoped). |
@@ -48,7 +48,7 @@ Fill in `.env`:
 ```bash
 docker compose up -d          # starts local Postgres on :5432, plus one-time role setup (see below)
 npm run prisma:migrate        # applies migrations (prompts for a name on first run; use "init")
-npm run prisma:seed           # creates/updates the Admin user from ADMIN_EMAIL/ADMIN_PASSWORD
+npm run prisma:seed           # creates/updates the Platform Operator from PLATFORM_OPERATOR_EMAIL/_PASSWORD
 ```
 
 On first container creation, `db/init/01-create-app-role.sql` automatically creates a second, unprivileged Postgres role (`cloudshiftg_app`) that the running application connects as. This matters because the bootstrap role (`cloudshiftg`, used by the Prisma CLI for migrations) is a Postgres **superuser**, and superusers always bypass row-level security — the app must never connect as that role, or RLS policies on tenant-owned tables silently do nothing. If you already had a Postgres volume from before this existed, run the SQL in that file manually against your running container once.
@@ -61,7 +61,7 @@ On first container creation, `db/init/01-create-app-role.sql` automatically crea
 npm run dev
 ```
 
-Open http://localhost:3000 (Next.js falls back to the next free port if 3000 is taken) and log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` from your `.env`.
+Open http://localhost:3000 (Next.js falls back to the next free port if 3000 is taken). Either register a new organization at `/onboarding` (self-service — creates a Tenant and its first Tenant Admin) or log in as the seeded Platform Operator with `PLATFORM_OPERATOR_EMAIL` / `PLATFORM_OPERATOR_PASSWORD` from your `.env`.
 
 ## Project structure
 
@@ -175,7 +175,7 @@ docker-compose.yml           Local Postgres
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run prisma:generate` | Regenerate the Prisma client |
 | `npm run prisma:migrate` | Run a new migration in dev |
-| `npm run prisma:seed` | Upsert the Admin user from `.env` |
+| `npm run prisma:seed` | Upsert the Platform Operator account from `.env` |
 | `npm run prisma:studio` | Open Prisma Studio |
 
 ## Verification checklist
@@ -232,6 +232,13 @@ docker-compose.yml           Local Postgres
 37. A `RUNNING` apply stuck past 30 minutes (longer than every other job's threshold — real Cloud SQL creation alone commonly takes 5–15 minutes) is auto-reconciled to `FAILED` on the next request, same self-healing pattern as every other job.
 38. RLS holds on `apply_runs` the same way as `aws_connections` (see #9).
 
+**Multi-Tenant Auth & RBAC**
+39. `/onboarding` is reachable while logged out (no redirect to `/login`) — step 1 is public self-service registration: organization name + the first Tenant Admin's name/email/password, in one submission. A second, independent organization can register the exact same way, at any time — there is no "already onboarded" cap.
+40. Two real, separately-registered tenants can never see each other's data via the API, confirmed by ID, not just by list-filtering: fetching Tenant A's real migration plan/audit run ID while authenticated as Tenant B's admin returns 404 (indistinguishable from nonexistent), not 403 and not the real data.
+41. `POST /api/team` (Tenant Admin only) creates a second Admin or a Tenant Member on the *same* tenant with a system-generated temporary password (returned once, in the response) and `mustChangePassword: true`. A Tenant Member gets 403 on every mutating route (start audit/comparison, create/approve/cancel/apply/verify/rollback a migration, update/verify the AWS connection, add a team member) and 200 on every read route; the UI hides the corresponding buttons/panels for them too, not just the API.
+42. The seeded Platform Operator logs in and lands on `/platform` (never `/dashboard`), sees every tenant's name/AWS-connection-status/admin-count, and gets 403 on every tenant-scoped route (`/api/migrations`, `/api/aws/connection`, etc.). `GET /api/platform/tenants` never returns `roleArn`/`externalId` for any tenant. A Tenant Admin gets 403 on `/api/platform/tenants`.
+43. RLS holds on `admin_action_logs` with a live tenant context set, the same way as `aws_connections` (see #9) — but also confirm the two-branch policy works correctly for the genuinely tenant-less rows it must still allow: a failed login (wrong password, unknown email) logs successfully with no `adminId`/`tenantId`, and remains invisible to every real tenant's own Audit Log view.
+
 ## Troubleshooting
 
 - **Port 5432 already in use** — stop any other local Postgres instance, or change the host port in `docker-compose.yml`.
@@ -260,4 +267,4 @@ docker-compose.yml           Local Postgres
 
 ## Roadmap
 
-Data transfer/cutover and the real GKE deployment integration are built as separate vertical slices in later phases, each verified end-to-end in the browser before the next one starts.
+Data transfer/cutover and the real GKE deployment integration (mandatory per the current spec — Terraform-provisioned GKE Autopilot cluster, Workload Identity, Secret Manager via the CSI driver, separate web/worker Deployments, Terraform executions as isolated Jobs, environment-specific Helm/Kustomize configs) are built as separate vertical slices in later phases, each verified end-to-end before the next one starts.

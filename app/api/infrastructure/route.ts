@@ -1,32 +1,19 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { listInfrastructureResources } from "@/lib/infrastructure";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { infrastructureQuerySchema } from "@/lib/validation/infrastructure";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 
 export async function GET(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiSuccess({
-        items: [],
-        ...paginationMeta(1, 25, 0),
-        auditRunId: null,
-        auditRunVersion: null,
-        auditRunFinishedAt: null,
-        dataSource: null,
-        filterOptions: { services: [], regions: [], statuses: [] },
-      });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const filters = infrastructureQuerySchema.parse({
       service: searchParams.get("service") ?? undefined,
@@ -39,7 +26,7 @@ export async function GET(request: NextRequest) {
     const { page, pageSize, skip, take } = parsePagination(searchParams);
 
     const { items, total, auditRun, filterOptions } = await listInfrastructureResources(
-      tenant.id,
+      admin.tenantId,
       filters,
       skip,
       take,

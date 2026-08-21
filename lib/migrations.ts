@@ -42,18 +42,38 @@ export type SelectableComparisonItem = {
 export async function getSelectableComparisonItems(
   tenantId: string,
 ): Promise<{ comparisonRunId: string; items: SelectableComparisonItem[] } | null> {
-  const run = await withTenantContext(tenantId, (tx) =>
-    tx.comparisonRun.findFirst({
-      where: { tenantId, status: "SUCCEEDED" },
-      orderBy: { version: "desc" },
-      include: { items: { where: { awsService: { not: "VPC" } }, orderBy: [{ awsService: "asc" }, { awsResourceId: "asc" }] } },
-    }),
+  const [run, provisioned] = await withTenantContext(tenantId, (tx) =>
+    Promise.all([
+      tx.comparisonRun.findFirst({
+        where: { tenantId, status: "SUCCEEDED" },
+        orderBy: { version: "desc" },
+        include: { items: { where: { awsService: { not: "VPC" } }, orderBy: [{ awsService: "asc" }, { awsResourceId: "asc" }] } },
+      }),
+      // The same underlying AWS resource being selected into two different
+      // migration plans is a real, confirmed failure mode: Terraform's
+      // deterministically-named GCP resource address collides, and the
+      // second plan's apply hits a real 409 "already exists" no matter how
+      // many times it's retried — carrying forward state helps a *single*
+      // plan's own re-applies, but can't help across plans, since each
+      // plan's Terraform state is independent. Stop it at selection time
+      // instead: gcpResourceSelfLink is only ever non-null while a resource
+      // is genuinely still real (Rollback clears it back to null on a
+      // confirmed destroy), so this check is self-correcting — a resource
+      // becomes selectable again the moment it's actually torn down.
+      tx.migrationResource.findMany({
+        where: { tenantId, gcpResourceSelfLink: { not: null } },
+        select: { awsResourceId: true },
+      }),
+    ]),
   );
   if (!run) return null;
 
+  const provisionedResourceIds = new Set(provisioned.map((r) => r.awsResourceId));
+  const items = run.items.filter((item) => !provisionedResourceIds.has(item.awsResourceId));
+
   return {
     comparisonRunId: run.id,
-    items: run.items.map((item) => ({
+    items: items.map((item) => ({
       id: item.id,
       awsService: item.awsService,
       awsResourceId: item.awsResourceId,

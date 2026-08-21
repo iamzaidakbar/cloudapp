@@ -1,7 +1,6 @@
 import { after, NextRequest } from "next/server";
 import { Prisma } from "@/lib/generated/prisma/client";
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { reconcileStaleComparisonRuns } from "@/lib/pricing/reconcile";
 import {
   createComparisonRun,
@@ -15,36 +14,31 @@ import { isGcpBillingConfigured } from "@/lib/gcp/is-configured";
 import { COMPARABLE_SERVICE_TYPES } from "@/lib/pricing/types";
 import { withTenantContext } from "@/lib/db/with-tenant";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST() {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
+    await reconcileStaleComparisonRuns(admin.tenantId);
 
-    await reconcileStaleComparisonRuns(tenant.id);
-
-    const active = await getActiveComparisonRun(tenant.id);
+    const active = await getActiveComparisonRun(admin.tenantId);
     if (active) {
       return apiError("A comparison is already in progress", 409);
     }
 
-    const sourceAuditRun = await getLatestSucceededAuditRun(tenant.id);
+    const sourceAuditRun = await getLatestSucceededAuditRun(admin.tenantId);
     if (!sourceAuditRun) {
       return apiError("Run a successful audit before comparing AWS to GCP", 400);
     }
 
-    const itemCount = await withTenantContext(tenant.id, (tx) =>
+    const itemCount = await withTenantContext(admin.tenantId, (tx) =>
       tx.auditResource.count({
         where: { auditRunId: sourceAuditRun.id, service: { in: COMPARABLE_SERVICE_TYPES } },
       }),
@@ -53,7 +47,7 @@ export async function POST() {
     const awsDataSource = isAwsConfigured() ? "AWS" : "DEV_ADAPTER";
     const gcpDataSource = isGcpBillingConfigured() ? "GCP" : "DEV_ADAPTER";
     const comparisonRun = await createComparisonRun(
-      tenant.id,
+      admin.tenantId,
       sourceAuditRun.id,
       itemCount,
       awsDataSource,
@@ -61,13 +55,13 @@ export async function POST() {
     );
 
     after(() =>
-      runComparison(comparisonRun.id, tenant.id).catch((error) =>
+      runComparison(comparisonRun.id, admin.tenantId).catch((error) =>
         console.error("Comparison run failed unexpectedly:", error),
       ),
     );
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "COMPARISON_STARTED",
@@ -88,22 +82,18 @@ export async function POST() {
 }
 
 export async function GET(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiSuccess({ items: [], ...paginationMeta(1, 25, 0) });
-    }
-
-    await reconcileStaleComparisonRuns(tenant.id);
+    await reconcileStaleComparisonRuns(admin.tenantId);
 
     const { page, pageSize, skip, take } = parsePagination(request.nextUrl.searchParams);
-    const { items, total } = await listComparisonRuns(tenant.id, skip, take);
+    const { items, total } = await listComparisonRuns(admin.tenantId, skip, take);
 
     return apiSuccess({ items, ...paginationMeta(page, pageSize, total) });
   } catch (error) {

@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { apiError, apiSuccess } from "@/lib/api/response";
 
 export async function GET() {
   try {
-    const admin = await requireAdmin();
+    const admin = await requireTenantScope();
 
     const [adminCount, me] = await Promise.all([
-      prisma.admin.count(),
+      // Scoped to this admin's own tenant — a tenant-wide admin count, not a
+      // global one, so Tenant A's dashboard never reveals Tenant B's team size.
+      prisma.admin.count({ where: { tenantId: admin.tenantId } }),
       prisma.admin.findUnique({
         where: { id: admin.id },
         select: { lastLoginAt: true },

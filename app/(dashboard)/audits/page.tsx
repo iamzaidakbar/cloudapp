@@ -1,4 +1,5 @@
 import { ClipboardCheck } from "lucide-react";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { getActiveAuditRun, listAuditRuns } from "@/lib/audits";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
@@ -13,7 +14,8 @@ export default async function AuditsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const { tenant, connection } = await getTenantWithConnection();
+  const admin = await requireTenantScope();
+  const { tenant, connection } = await getTenantWithConnection(admin.tenantId);
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -22,10 +24,10 @@ export default async function AuditsPage({
   );
   const { page, pageSize, skip, take } = parsePagination(urlSearchParams);
 
-  const { items, total } = tenant ? await listAuditRuns(tenant.id, skip, take) : { items: [], total: 0 };
+  const { items, total } = await listAuditRuns(admin.tenantId, skip, take);
   const meta = paginationMeta(page, pageSize, total);
 
-  const activeRun = tenant ? await getActiveAuditRun(tenant.id) : null;
+  const activeRun = await getActiveAuditRun(admin.tenantId);
 
   return (
     <div className="flex flex-col gap-4">
@@ -36,7 +38,7 @@ export default async function AuditsPage({
             Run and review AWS infrastructure audits for {tenant?.name ?? "your organization"}.
           </p>
         </div>
-        {tenant && connection?.status === "CONNECTED" ? (
+        {admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
           <RunAuditButton hasActiveRun={Boolean(activeRun)} activeRunStartedAt={activeRun?.startedAt} />
         ) : null}
       </div>

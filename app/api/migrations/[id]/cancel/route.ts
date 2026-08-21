@@ -1,33 +1,27 @@
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin } from "@/lib/auth/guard";
 import { cancelMigrationPlan, getMigrationPlan } from "@/lib/migrations";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
-
-    const result = await cancelMigrationPlan(tenant.id, id);
+    const result = await cancelMigrationPlan(admin.tenantId, id);
     if (result.count === 0) {
       return apiError("Migration plan not found or already approved/cancelled", 400);
     }
 
-    const migrationPlan = await getMigrationPlan(tenant.id, id);
+    const migrationPlan = await getMigrationPlan(admin.tenantId, id);
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "MIGRATION_CANCELLED",

@@ -1,35 +1,30 @@
 import { after } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getActiveTerraformRun, getLatestTerraformRun, createTerraformRun, getTerraformSourceResources } from "@/lib/terraform-runs";
 import { generateTerraformConfig } from "@/lib/terraform/generate";
 import { runTerraformCli } from "@/lib/terraform/run-terraform";
 import { reconcileStaleTerraformRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
 
     if (!env.GCP_PROJECT_ID) {
       return apiError("Set GCP_PROJECT_ID before generating Terraform", 400);
     }
 
-    const plan = await getMigrationPlan(tenant.id, id);
+    const plan = await getMigrationPlan(admin.tenantId, id);
     if (!plan) {
       return apiError("Migration plan not found", 404);
     }
@@ -37,25 +32,25 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       return apiError("Only an approved migration plan can have Terraform generated", 400);
     }
 
-    await reconcileStaleTerraformRuns(tenant.id);
+    await reconcileStaleTerraformRuns(admin.tenantId);
 
-    const active = await getActiveTerraformRun(tenant.id, id);
+    const active = await getActiveTerraformRun(admin.tenantId, id);
     if (active) {
       return apiError("A Terraform run is already in progress for this plan", 409);
     }
 
-    const resources = await getTerraformSourceResources(tenant.id, id);
+    const resources = await getTerraformSourceResources(admin.tenantId, id);
     const terraformConfig = generateTerraformConfig(resources, env.GCP_PROJECT_ID);
-    const terraformRun = await createTerraformRun(tenant.id, id, terraformConfig);
+    const terraformRun = await createTerraformRun(admin.tenantId, id, terraformConfig);
 
     after(() =>
-      runTerraformCli(terraformRun.id, tenant.id).catch((error) =>
+      runTerraformCli(terraformRun.id, admin.tenantId).catch((error) =>
         console.error("Terraform run failed unexpectedly:", error),
       ),
     );
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "TERRAFORM_GENERATED",
@@ -71,22 +66,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
+    await reconcileStaleTerraformRuns(admin.tenantId);
 
-    await reconcileStaleTerraformRuns(tenant.id);
-
-    const terraformRun = await getLatestTerraformRun(tenant.id, id);
+    const terraformRun = await getLatestTerraformRun(admin.tenantId, id);
     return apiSuccess({ terraformRun });
   } catch (error) {
     console.error("Fetching Terraform run failed:", error);

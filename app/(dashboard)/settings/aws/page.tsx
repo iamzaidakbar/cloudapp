@@ -1,8 +1,10 @@
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { AwsConnectionPanel } from "@/components/settings/aws-connection-panel";
 
 export default async function SettingsAwsPage() {
-  const { tenant, connection } = await getTenantWithConnection();
+  const admin = await requireTenantScope();
+  const { tenant, connection } = await getTenantWithConnection(admin.tenantId);
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,30 +1,25 @@
 import { after } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getActiveApplyRun, getLatestApplyRun, createApplyRun } from "@/lib/apply-runs";
 import { runApply } from "@/lib/terraform/run-apply";
 import { reconcileStaleApplyRuns } from "@/lib/terraform/reconcile";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
 
-    const plan = await getMigrationPlan(tenant.id, id);
+    const plan = await getMigrationPlan(admin.tenantId, id);
     if (!plan) {
       return apiError("Migration plan not found", 404);
     }
@@ -32,26 +27,26 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       return apiError("Only an approved migration plan can be executed", 400);
     }
 
-    const terraformRun = await getLatestTerraformRun(tenant.id, id);
+    const terraformRun = await getLatestTerraformRun(admin.tenantId, id);
     if (!terraformRun || terraformRun.status !== "SUCCEEDED" || !terraformRun.planSucceeded) {
       return apiError("Generate Terraform and confirm a successful plan before executing", 400);
     }
 
-    await reconcileStaleApplyRuns(tenant.id);
+    await reconcileStaleApplyRuns(admin.tenantId);
 
-    const active = await getActiveApplyRun(tenant.id, id);
+    const active = await getActiveApplyRun(admin.tenantId, id);
     if (active) {
       return apiError("An apply is already in progress for this plan", 409);
     }
 
-    const applyRun = await createApplyRun(tenant.id, id);
+    const applyRun = await createApplyRun(admin.tenantId, id);
 
     after(() =>
-      runApply(applyRun.id, tenant.id).catch((error) => console.error("Apply run failed unexpectedly:", error)),
+      runApply(applyRun.id, admin.tenantId).catch((error) => console.error("Apply run failed unexpectedly:", error)),
     );
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "MIGRATION_APPLIED",
@@ -67,22 +62,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
+    await reconcileStaleApplyRuns(admin.tenantId);
 
-    await reconcileStaleApplyRuns(tenant.id);
-
-    const applyRun = await getLatestApplyRun(tenant.id, id);
+    const applyRun = await getLatestApplyRun(admin.tenantId, id);
     return apiSuccess({ applyRun });
   } catch (error) {
     console.error("Fetching apply run failed:", error);

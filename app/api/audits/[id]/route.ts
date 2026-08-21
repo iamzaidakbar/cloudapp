@@ -1,26 +1,21 @@
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { reconcileStaleAuditRuns } from "@/lib/aws/audit/reconcile";
 import { getAuditRun } from "@/lib/audits";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
+    await reconcileStaleAuditRuns(admin.tenantId);
 
-    await reconcileStaleAuditRuns(tenant.id);
-
-    const auditRun = await getAuditRun(tenant.id, id);
+    const auditRun = await getAuditRun(admin.tenantId, id);
     if (!auditRun) {
       return apiError("Audit run not found", 404);
     }

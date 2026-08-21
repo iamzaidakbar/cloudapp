@@ -1,34 +1,29 @@
 import { after } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getActiveRollbackRun, getLatestRollbackRun, createRollbackRun } from "@/lib/rollback-runs";
 import { runRollback } from "@/lib/terraform/run-rollback";
 import { reconcileStaleRollbackRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
 
     if (!env.GCP_PROJECT_ID) {
       return apiError("Set GCP_PROJECT_ID before rolling back", 400);
     }
 
-    const plan = await getMigrationPlan(tenant.id, id);
+    const plan = await getMigrationPlan(admin.tenantId, id);
     if (!plan) {
       return apiError("Migration plan not found", 404);
     }
@@ -47,21 +42,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return apiError("Confirmation number did not match this plan — nothing was destroyed", 400);
     }
 
-    await reconcileStaleRollbackRuns(tenant.id);
+    await reconcileStaleRollbackRuns(admin.tenantId);
 
-    const active = await getActiveRollbackRun(tenant.id, id);
+    const active = await getActiveRollbackRun(admin.tenantId, id);
     if (active) {
       return apiError("A rollback is already in progress for this plan", 409);
     }
 
-    const rollbackRun = await createRollbackRun(tenant.id, id);
+    const rollbackRun = await createRollbackRun(admin.tenantId, id);
 
     after(() =>
-      runRollback(rollbackRun.id, tenant.id).catch((error) => console.error("Rollback run failed unexpectedly:", error)),
+      runRollback(rollbackRun.id, admin.tenantId).catch((error) =>
+        console.error("Rollback run failed unexpectedly:", error),
+      ),
     );
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "MIGRATION_ROLLED_BACK",
@@ -78,22 +75,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
+    await reconcileStaleRollbackRuns(admin.tenantId);
 
-    await reconcileStaleRollbackRuns(tenant.id);
-
-    const rollbackRun = await getLatestRollbackRun(tenant.id, id);
+    const rollbackRun = await getLatestRollbackRun(admin.tenantId, id);
     return apiSuccess({ rollbackRun });
   } catch (error) {
     console.error("Fetching rollback run failed:", error);

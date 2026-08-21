@@ -5,13 +5,15 @@ import { OnboardingCta } from "@/components/dashboard/onboarding-cta";
 import { LatestAuditSummary } from "@/components/dashboard/latest-audit-summary";
 import { LatestComparisonSummary } from "@/components/dashboard/latest-comparison-summary";
 import { LatestMigrationSummary } from "@/components/dashboard/latest-migration-summary";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection, isOnboardingComplete } from "@/lib/tenant";
 import { listAuditRuns } from "@/lib/audits";
 import { getLatestComparisonRun } from "@/lib/comparisons";
 import { getLatestMigrationPlan } from "@/lib/migrations";
 
 export default async function DashboardPage() {
-  const { tenant, connection } = await getTenantWithConnection();
+  const admin = await requireTenantScope();
+  const { tenant, connection } = await getTenantWithConnection(admin.tenantId);
   const connected = isOnboardingComplete(connection);
 
   const latestAuditRun = connected

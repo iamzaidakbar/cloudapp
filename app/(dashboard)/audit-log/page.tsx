@@ -1,4 +1,5 @@
 import { FileClock } from "lucide-react";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { listAdminActions } from "@/lib/audit-log";
 import { ADMIN_ACTION_TYPES, type AdminActionTypeValue } from "@/lib/audit-log-shared";
 import type { AdminActionType } from "@/lib/generated/prisma/client";
@@ -14,6 +15,7 @@ export default async function AuditLogPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
+  const admin = await requireTenantScope();
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -28,7 +30,7 @@ export default async function AuditLogPage({
       ? (actionParam as AdminActionTypeValue as AdminActionType)
       : undefined;
 
-  const { items, total } = await listAdminActions({ skip, take, action });
+  const { items, total } = await listAdminActions({ tenantId: admin.tenantId, skip, take, action });
   const meta = paginationMeta(page, pageSize, total);
 
   const buildPageHref = (p: number) => {

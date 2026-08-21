@@ -20,6 +20,7 @@ export const ADMIN_ACTION_TYPES = [
   "MIGRATION_APPLIED",
   "VERIFICATION_RUN",
   "MIGRATION_ROLLED_BACK",
+  "TEAM_MEMBER_ADDED",
 ] as const;
 
 export type AdminActionTypeValue = (typeof ADMIN_ACTION_TYPES)[number];
@@ -40,4 +41,5 @@ export const ADMIN_ACTION_LABEL: Record<AdminActionTypeValue, string> = {
   MIGRATION_APPLIED: "Migration Applied",
   VERIFICATION_RUN: "Verification Run",
   MIGRATION_ROLLED_BACK: "Migration Rolled Back",
+  TEAM_MEMBER_ADDED: "Team Member Added",
 };

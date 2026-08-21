@@ -1,25 +1,22 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { withTenantContext } from "@/lib/db/with-tenant";
 import { getAppAwsIdentity } from "@/lib/aws/sts";
 import { roleArnSchema } from "@/lib/validation/aws-connection";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function GET() {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant, connection } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
-
+    const { tenant, connection } = await getTenantWithConnection(admin.tenantId);
     const appIdentity = await getAppAwsIdentity();
     return apiSuccess({ tenant, connection, appIdentity });
   } catch (error) {
@@ -31,9 +28,9 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   let body: unknown;
@@ -49,14 +46,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
-
-    const connection = await withTenantContext(tenant.id, (tx) =>
+    const connection = await withTenantContext(admin.tenantId, (tx) =>
       tx.awsConnection.update({
-        where: { tenantId: tenant.id },
+        where: { tenantId: admin.tenantId },
         data: {
           roleArn: parsed.data.roleArn,
           status: "NOT_CONNECTED",
@@ -68,7 +60,7 @@ export async function PATCH(request: NextRequest) {
     );
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "AWS_CONNECTION_UPDATED",

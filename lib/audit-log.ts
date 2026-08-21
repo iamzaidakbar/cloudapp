@@ -1,24 +1,28 @@
-import { prisma } from "@/lib/db";
+import { withTenantContext } from "@/lib/db/with-tenant";
 import type { AdminActionType } from "@/lib/generated/prisma/client";
 
-// AdminActionLog is not tenant-scoped / not covered by RLS (see the model's
-// own schema comment) — reads via the raw `prisma` client, same as
-// lib/pricing/cache.ts. No tenant filter is applied: this deployment only
-// ever has one tenant, so showing every row is both simpler and correct.
+// AdminActionLog is RLS'd (see the model's own schema comment) — reads for
+// a tenant-scoped viewer always go through withTenantContext, same as every
+// other table. Platform Operator's own (deferred) cross-tenant log view
+// would use the raw, unscoped client instead — out of scope this phase.
 export async function listAdminActions({
+  tenantId,
   skip,
   take,
   action,
 }: {
+  tenantId: string;
   skip: number;
   take: number;
   action?: AdminActionType;
 }) {
-  const where = action ? { action } : {};
-  const [rows, total] = await Promise.all([
-    prisma.adminActionLog.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
-    prisma.adminActionLog.count({ where }),
-  ]);
+  const where = { tenantId, ...(action ? { action } : {}) };
+  const [rows, total] = await withTenantContext(tenantId, (tx) =>
+    Promise.all([
+      tx.adminActionLog.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
+      tx.adminActionLog.count({ where }),
+    ]),
+  );
 
   // Same "Migration #N" polish as Job History's Context column — a light
   // follow-up query for just this page's referenced plans, not a join.
@@ -26,7 +30,9 @@ export async function listAdminActions({
     ...new Set(rows.filter((r) => r.targetType === "MigrationPlan" && r.targetId).map((r) => r.targetId as string)),
   ];
   const plans = migrationPlanIds.length
-    ? await prisma.migrationPlan.findMany({ where: { id: { in: migrationPlanIds } }, select: { id: true, sequenceNumber: true } })
+    ? await withTenantContext(tenantId, (tx) =>
+        tx.migrationPlan.findMany({ where: { tenantId, id: { in: migrationPlanIds } }, select: { id: true, sequenceNumber: true } }),
+      )
     : [];
   const sequenceByPlanId = new Map(plans.map((p) => [p.id, p.sequenceNumber]));
 

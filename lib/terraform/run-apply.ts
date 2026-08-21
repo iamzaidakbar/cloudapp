@@ -42,7 +42,7 @@ export async function runApply(applyRunId: string, tenantId: string): Promise<vo
     tx.applyRun.findUniqueOrThrow({ where: { id: applyRunId }, select: { migrationPlanId: true } }),
   );
 
-  const [terraformRun, resources] = await withTenantContext(tenantId, (tx) =>
+  const [terraformRun, resources, priorApplyRun] = await withTenantContext(tenantId, (tx) =>
     Promise.all([
       tx.terraformRun.findFirst({
         where: { tenantId, migrationPlanId: applyRun.migrationPlanId, status: "SUCCEEDED", planSucceeded: true },
@@ -50,6 +50,16 @@ export async function runApply(applyRunId: string, tenantId: string): Promise<vo
         select: { terraformConfig: true },
       }),
       tx.migrationResource.findMany({ where: { tenantId, migrationPlanId: applyRun.migrationPlanId } }),
+      // The most recent EARLIER apply that actually created something for
+      // real, if any — see the state-loading comment below for why this
+      // matters. Excludes the current (just-created, QUEUED) run explicitly
+      // rather than relying on resourcesCreated being null for it, which
+      // would be true anyway but is worth not depending on implicitly.
+      tx.applyRun.findFirst({
+        where: { tenantId, migrationPlanId: applyRun.migrationPlanId, id: { not: applyRunId }, resourcesCreated: { gt: 0 } },
+        orderBy: { version: "desc" },
+        select: { terraformState: true },
+      }),
     ]),
   );
 
@@ -71,6 +81,20 @@ export async function runApply(applyRunId: string, tenantId: string): Promise<vo
   try {
     workDir = await mkdtemp(path.join(tmpdir(), "cloudshiftg-apply-"));
     await writeFile(path.join(workDir, "main.tf"), terraformRun.terraformConfig, "utf8");
+
+    // Without this, a re-run (or a retry after partial failure) starts from
+    // a totally empty, memory-less state every time — Terraform has no idea
+    // anything was already created, so it tries to CREATE the same
+    // deterministically-named resource again, and GCP correctly rejects it
+    // with a real 409 "already exists". Confirmed the hard way against a
+    // real GCP project. Loading the prior real state first (same pattern
+    // run-rollback.ts already uses before destroying) makes this apply
+    // idempotent — Terraform sees what's really already there and only
+    // creates the delta, exactly the FR-5.6 requirement ("re-running a
+    // failed migration must not duplicate resources").
+    if (priorApplyRun?.terraformState) {
+      await writeFile(path.join(workDir, "terraform.tfstate"), priorApplyRun.terraformState, "utf8");
+    }
 
     const init = await terraformInit(workDir);
     if (!init.success) {

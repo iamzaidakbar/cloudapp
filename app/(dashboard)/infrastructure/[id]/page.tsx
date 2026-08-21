@@ -1,15 +1,14 @@
 import { notFound } from "next/navigation";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getInfrastructureResource } from "@/lib/infrastructure";
 import { ResourceIdentityHeader } from "@/components/infrastructure/resource-identity-header";
 import { ResourceDetailTabs } from "@/components/infrastructure/resource-detail-tabs";
 
 export default async function ResourceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { tenant } = await getTenantWithConnection();
-  if (!tenant) notFound();
+  const admin = await requireTenantScope();
 
-  const resource = await getInfrastructureResource(tenant.id, id);
+  const resource = await getInfrastructureResource(admin.tenantId, id);
   if (!resource) notFound();
 
   return (

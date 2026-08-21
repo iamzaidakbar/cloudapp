@@ -1,21 +1,21 @@
-import { requireAdmin } from "@/lib/auth/guard";
+import { requireTenantAdmin } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { withTenantContext } from "@/lib/db/with-tenant";
 import { verifyAwsConnection } from "@/lib/aws/verify-connection";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST() {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant, connection } = await getTenantWithConnection();
-    if (!tenant || !connection) {
+    const { connection } = await getTenantWithConnection(admin.tenantId);
+    if (!connection) {
       return apiError("Organization not configured", 404);
     }
     if (!connection.roleArn) {
@@ -28,12 +28,12 @@ export async function POST() {
       const result = await verifyAwsConnection(
         connection.roleArn,
         connection.externalId,
-        `cloudshiftg-${tenant.id}`,
+        `cloudshiftg-${admin.tenantId}`,
       );
 
-      const updated = await withTenantContext(tenant.id, (tx) =>
+      const updated = await withTenantContext(admin.tenantId, (tx) =>
         tx.awsConnection.update({
-          where: { tenantId: tenant.id },
+          where: { tenantId: admin.tenantId },
           data: {
             status: "CONNECTED",
             awsAccountId: result.accountId,
@@ -46,7 +46,7 @@ export async function POST() {
       );
 
       await logAdminAction({
-        tenantId: tenant.id,
+        tenantId: admin.tenantId,
         adminId: admin.id,
         adminEmail: admin.email,
         action: "AWS_CONNECTION_VERIFIED",
@@ -60,9 +60,9 @@ export async function POST() {
       const message =
         verifyError instanceof Error ? verifyError.message : "Verification failed";
 
-      const updated = await withTenantContext(tenant.id, (tx) =>
+      const updated = await withTenantContext(admin.tenantId, (tx) =>
         tx.awsConnection.update({
-          where: { tenantId: tenant.id },
+          where: { tenantId: admin.tenantId },
           data: {
             status: "FAILED",
             lastVerifiedAt: now,
@@ -72,7 +72,7 @@ export async function POST() {
       );
 
       await logAdminAction({
-        tenantId: tenant.id,
+        tenantId: admin.tenantId,
         adminId: admin.id,
         adminEmail: admin.email,
         action: "AWS_CONNECTION_VERIFIED",

@@ -1,26 +1,21 @@
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { createVerificationRun, getLatestVerificationRun } from "@/lib/verification-runs";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
 
-    const plan = await getMigrationPlan(tenant.id, id);
+    const plan = await getMigrationPlan(admin.tenantId, id);
     if (!plan) {
       return apiError("Migration plan not found", 404);
     }
@@ -30,10 +25,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       return apiError("No resources have been provisioned for this plan yet — execute the migration first.", 400);
     }
 
-    const verificationRun = await createVerificationRun(tenant.id, id);
+    const verificationRun = await createVerificationRun(admin.tenantId, id);
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "VERIFICATION_RUN",
@@ -49,20 +44,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
     const { id } = await params;
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
-
-    const verificationRun = await getLatestVerificationRun(tenant.id, id);
+    const verificationRun = await getLatestVerificationRun(admin.tenantId, id);
     return apiSuccess({ verificationRun });
   } catch (error) {
     console.error("Fetching verification run failed:", error);

@@ -7,15 +7,33 @@ datasource db {
   provider = "postgresql"
 }
 
-model Admin {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  lastLoginAt  DateTime?
+enum AdminRole {
+  PLATFORM_OPERATOR
+  TENANT_ADMIN
+  TENANT_MEMBER
+}
 
+// Every real person who logs into this app, across all 3 roles — kept as
+// one table/one login flow rather than split by role, since a Tenant Admin,
+// Tenant Member, and Platform Operator all authenticate identically
+// (email+password, one session shape); only their tenantId/role differ.
+// tenantId is NULL only for PLATFORM_OPERATOR (enforced by a CHECK
+// constraint added in the hand-written migration, since Prisma's schema DSL
+// has no CHECK support) — a Platform Operator has no tenant of their own.
+model Admin {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  passwordHash       String
+  name               String?
+  role               AdminRole  @default(TENANT_ADMIN)
+  tenantId           String?
+  tenant             Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mustChangePassword Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  lastLoginAt        DateTime?
+
+  @@index([tenantId])
   @@map("admins")
 }
 
@@ -30,14 +48,17 @@ enum VerificationSource {
   DEV_ADAPTER
 }
 
-// "Tenant" is the data-layer/AWS-account-boundary entity, not a UI role — the
-// app remains Admin-only. Exactly one Tenant row exists per deployment,
-// enforced in application code (POST /api/onboarding/tenant is 409 if one exists).
+// "Tenant" is the data-layer/AWS-account-boundary entity — one customer
+// organization. Multi-tenant: any number of Tenant rows can exist, each
+// with its own Admins (TENANT_ADMIN/TENANT_MEMBER), created via self-service
+// registration (POST /api/auth/register), isolated from every other
+// tenant's data at the RLS layer (see each tenant-scoped model below).
 model Tenant {
   id            String         @id @default(cuid())
   name          String
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  admins         Admin[]
   awsConnection  AwsConnection?
   auditRuns      AuditRun[]
   comparisonRuns ComparisonRun[]
@@ -584,16 +605,19 @@ enum AdminActionType {
   MIGRATION_APPLIED
   VERIFICATION_RUN
   MIGRATION_ROLLED_BACK
+  TEAM_MEMBER_ADDED
 }
 
-// Deliberately NOT tenant-scoped / NOT covered by row-level security — same
-// treatment as PricingCache (see lib/pricing/cache.ts's own comment). Admin
-// accounts have no tenantId (this app is Admin-only, not multi-tenant-per-
-// role), and the very first action ever logged — an admin's first login —
-// necessarily happens before any Tenant row exists. An RLS policy keyed on
-// tenantId would make that row permanently invisible through the normal app
-// connection (NULL never satisfies tenantId = current_setting(...)).
-// tenantId is still stored, nullable, for context once a tenant exists.
+// RLS'd like every other tenant-scoped table (see the hand-written RLS
+// migration) — FR-2.4's isolation acceptance test explicitly names "logs".
+// tenantId stays nullable (not a required relation): self-service
+// registration (POST /api/auth/register) creates Tenant + first Admin in
+// one transaction, so almost every row has a real tenant from the moment it's
+// written — the only genuinely tenant-less rows are a failed login against
+// an email matching no Admin at all, and the Platform Operator's own actions
+// (no tenant by design). Those are written/read via the raw, unscoped
+// `prisma` client (see lib/admin-action-log.ts); tenant-scoped rows go
+// through withTenantContext like every other table.
 model AdminActionLog {
   id         String           @id @default(cuid())
   tenantId   String?

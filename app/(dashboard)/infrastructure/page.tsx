@@ -1,5 +1,5 @@
 import { Server } from "lucide-react";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { listInfrastructureResources } from "@/lib/infrastructure";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { InfrastructureFilterBar } from "@/components/infrastructure/infrastructure-filter-bar";
@@ -20,7 +20,7 @@ export default async function InfrastructurePage({
     return Array.isArray(value) ? value[0] : value;
   };
 
-  const { tenant } = await getTenantWithConnection();
+  const admin = await requireTenantScope();
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -38,9 +38,7 @@ export default async function InfrastructurePage({
     q: get("q"),
   };
 
-  const { items, total, auditRun, filterOptions } = tenant
-    ? await listInfrastructureResources(tenant.id, filters, skip, take)
-    : { items: [], total: 0, auditRun: null, filterOptions: { services: [], regions: [], statuses: [] } };
+  const { items, total, auditRun, filterOptions } = await listInfrastructureResources(admin.tenantId, filters, skip, take);
 
   const meta = paginationMeta(page, pageSize, total);
   const hasActiveFilters = Object.entries(params).some(([key, value]) => key !== "page" && Boolean(value));

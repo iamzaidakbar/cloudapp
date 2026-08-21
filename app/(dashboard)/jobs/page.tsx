@@ -1,5 +1,5 @@
 import { ListChecks } from "lucide-react";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { listJobs, JOB_TYPES, JOB_STATUSES, type JobType, type JobRowStatus } from "@/lib/jobs";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { DataTableShell } from "@/components/shared/data-table-shell";
@@ -13,7 +13,7 @@ export default async function JobsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const { tenant } = await getTenantWithConnection();
+  const admin = await requireTenantScope();
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -28,7 +28,7 @@ export default async function JobsPage({
   const status =
     statusParam && (JOB_STATUSES as readonly string[]).includes(statusParam) ? (statusParam as JobRowStatus) : undefined;
 
-  const { items, total } = tenant ? await listJobs(tenant.id, { skip, take, type, status }) : { items: [], total: 0 };
+  const { items, total } = await listJobs(admin.tenantId, { skip, take, type, status });
   const meta = paginationMeta(page, pageSize, total);
 
   const buildPageHref = (p: number) => {
@@ -42,7 +42,7 @@ export default async function JobsPage({
       <div>
         <h1 className="text-lg font-semibold text-foreground">Jobs</h1>
         <p className="text-sm text-muted-foreground">
-          Every audit, comparison, Terraform, apply, verification, and rollback run for {tenant?.name ?? "your organization"}, in one place.
+          Every audit, comparison, Terraform, apply, verification, and rollback run for your organization, in one place.
         </p>
       </div>
 

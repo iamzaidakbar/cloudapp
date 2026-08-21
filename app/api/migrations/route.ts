@@ -1,33 +1,27 @@
 import { NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { createMigrationPlan, getSelectableComparisonItems, listMigrationPlans } from "@/lib/migrations";
 import { createMigrationPlanSchema } from "@/lib/validation/migration";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(request: NextRequest) {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiError("Organization not configured", 404);
-    }
-
     const body = await request.json();
     const parsed = createMigrationPlanSchema.safeParse(body);
     if (!parsed.success) {
       return apiError("Invalid request", 400, parsed.error.flatten().fieldErrors);
     }
 
-    const selectable = await getSelectableComparisonItems(tenant.id);
+    const selectable = await getSelectableComparisonItems(admin.tenantId);
     if (!selectable) {
       return apiError("Run a successful AWS to GCP comparison first", 400);
     }
@@ -38,10 +32,10 @@ export async function POST(request: NextRequest) {
       return apiError("One or more selected resources are no longer available in the latest comparison", 400);
     }
 
-    const plan = await createMigrationPlan(tenant.id, selectable.comparisonRunId, items);
+    const plan = await createMigrationPlan(admin.tenantId, selectable.comparisonRunId, items);
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "MIGRATION_PLAN_CREATED",
@@ -58,20 +52,16 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiSuccess({ items: [], ...paginationMeta(1, 25, 0) });
-    }
-
     const { page, pageSize, skip, take } = parsePagination(request.nextUrl.searchParams);
-    const { items, total } = await listMigrationPlans(tenant.id, skip, take);
+    const { items, total } = await listMigrationPlans(admin.tenantId, skip, take);
 
     return apiSuccess({ items, ...paginationMeta(page, pageSize, total) });
   } catch (error) {

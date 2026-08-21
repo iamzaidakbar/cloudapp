@@ -1,46 +1,48 @@
 import { after, NextRequest } from "next/server";
 import { Prisma } from "@/lib/generated/prisma/client";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { reconcileStaleAuditRuns } from "@/lib/aws/audit/reconcile";
 import { createAuditRun, getActiveAuditRun, listAuditRuns } from "@/lib/audits";
 import { runAudit } from "@/lib/aws/audit/run-audit";
 import { isAwsConfigured } from "@/lib/aws/is-configured";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
-import { apiError, apiSuccess } from "@/lib/api/response";
+import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST() {
   let admin;
   try {
-    admin = await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantAdmin();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant, connection } = await getTenantWithConnection();
-    if (!tenant || !connection) {
+    const { connection } = await getTenantWithConnection(admin.tenantId);
+    if (!connection) {
       return apiError("Organization not configured", 404);
     }
     if (connection.status !== "CONNECTED" || !connection.roleArn) {
       return apiError("Connect an AWS account before running an audit", 400);
     }
 
-    await reconcileStaleAuditRuns(tenant.id);
+    await reconcileStaleAuditRuns(admin.tenantId);
 
-    const active = await getActiveAuditRun(tenant.id);
+    const active = await getActiveAuditRun(admin.tenantId);
     if (active) {
       return apiError("An audit is already in progress", 409);
     }
 
     const dataSource = isAwsConfigured() ? "AWS" : "DEV_ADAPTER";
-    const auditRun = await createAuditRun(tenant.id, dataSource);
+    const auditRun = await createAuditRun(admin.tenantId, dataSource);
 
-    after(() => runAudit(auditRun.id, tenant.id).catch((error) => console.error("Audit run failed unexpectedly:", error)));
+    after(() =>
+      runAudit(auditRun.id, admin.tenantId).catch((error) => console.error("Audit run failed unexpectedly:", error)),
+    );
 
     await logAdminAction({
-      tenantId: tenant.id,
+      tenantId: admin.tenantId,
       adminId: admin.id,
       adminEmail: admin.email,
       action: "AUDIT_STARTED",
@@ -63,22 +65,18 @@ export async function POST() {
 }
 
 export async function GET(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
-  } catch {
-    return apiError("Unauthorized", 401);
+    admin = await requireTenantScope();
+  } catch (error) {
+    return apiErrorFromAuth(error);
   }
 
   try {
-    const { tenant } = await getTenantWithConnection();
-    if (!tenant) {
-      return apiSuccess({ items: [], ...paginationMeta(1, 25, 0) });
-    }
-
-    await reconcileStaleAuditRuns(tenant.id);
+    await reconcileStaleAuditRuns(admin.tenantId);
 
     const { page, pageSize, skip, take } = parsePagination(request.nextUrl.searchParams);
-    const { items, total } = await listAuditRuns(tenant.id, skip, take);
+    const { items, total } = await listAuditRuns(admin.tenantId, skip, take);
 
     return apiSuccess({ items, ...paginationMeta(page, pageSize, total) });
   } catch (error) {

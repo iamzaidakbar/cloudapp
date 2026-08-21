@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getTenantWithConnection } from "@/lib/tenant";
+import { requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getLatestApplyRun } from "@/lib/apply-runs";
@@ -18,19 +18,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default async function MigrationPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { tenant } = await getTenantWithConnection();
-  if (!tenant) notFound();
+  const admin = await requireTenantScope();
 
-  const plan = await getMigrationPlan(tenant.id, id);
+  const plan = await getMigrationPlan(admin.tenantId, id);
   if (!plan) notFound();
 
-  const terraformRun = plan.status === "APPROVED" ? await getLatestTerraformRun(tenant.id, id) : null;
-  const applyRun = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded ? await getLatestApplyRun(tenant.id, id) : null;
-  const canExecute = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded === true;
-  const verificationRun = applyRun?.status === "SUCCEEDED" ? await getLatestVerificationRun(tenant.id, id) : null;
+  const isTenantAdmin = admin.role === "TENANT_ADMIN";
+  const terraformRun = plan.status === "APPROVED" ? await getLatestTerraformRun(admin.tenantId, id) : null;
+  const applyRun =
+    terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded ? await getLatestApplyRun(admin.tenantId, id) : null;
+  const canExecute = isTenantAdmin && terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded === true;
+  const verificationRun =
+    applyRun?.status === "SUCCEEDED" ? await getLatestVerificationRun(admin.tenantId, id) : null;
   const provisionedResources = plan.resources.filter((r) => r.gcpResourceSelfLink);
-  const canRollback = plan.status === "APPROVED" && provisionedResources.length > 0;
-  const rollbackRun = canRollback ? await getLatestRollbackRun(tenant.id, id) : null;
+  const canRollback = isTenantAdmin && plan.status === "APPROVED" && provisionedResources.length > 0;
+  const rollbackRun = canRollback ? await getLatestRollbackRun(admin.tenantId, id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,10 +70,10 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
         <Alert>
           <AlertDescription className="flex flex-col gap-3">
             <span>
-              This migration requires Admin approval before Terraform generation or execution can happen (not yet available in
-              this build — planning and approval only). Approving records who approved it and when.
+              This migration requires Tenant Admin approval before Terraform generation or execution can happen.
+              Approving records who approved it and when.
             </span>
-            <PlanActions migrationPlanId={plan.id} />
+            {isTenantAdmin ? <PlanActions migrationPlanId={plan.id} /> : null}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -99,13 +101,13 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
 
       <MigrationResourcesTable resources={plan.resources} />
 
-      {plan.status === "APPROVED" ? (
+      {isTenantAdmin && plan.status === "APPROVED" ? (
         <TerraformPanel migrationPlanId={plan.id} initialTerraformRun={terraformRun} />
       ) : null}
 
       {canExecute ? <ApplyPanel migrationPlanId={plan.id} initialApplyRun={applyRun} /> : null}
 
-      {applyRun?.status === "SUCCEEDED" ? (
+      {isTenantAdmin && applyRun?.status === "SUCCEEDED" ? (
         <VerificationPanel migrationPlanId={plan.id} initialVerificationRun={verificationRun} />
       ) : null}
 
