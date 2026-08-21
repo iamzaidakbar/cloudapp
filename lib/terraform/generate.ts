@@ -105,7 +105,7 @@ const DATABASE_VERSION: Record<"mysql" | "postgres", string> = {
   postgres: "POSTGRES_15",
 };
 
-function rdsBlock(resource: TerraformSourceResource): string {
+function rdsBlock(resource: TerraformSourceResource, disableDeletionProtection: boolean): string {
   const name = slug(resource.awsResourceId);
   const region = toGcpRegion(resource.region);
   const match = resource.gcpSizeLabel?.match(/(\d+)\s*vCPU\s*\/\s*(\d+)\s*GiB/i);
@@ -123,7 +123,7 @@ resource "google_sql_database_instance" "${name}" {
     tier = "db-custom-${vcpu}-${memoryMb}"
   }
 
-  deletion_protection = true
+  deletion_protection = ${!disableDeletionProtection}
 }
 `.trim();
 }
@@ -163,7 +163,11 @@ resource "google_cloudfunctions2_function" "${name}" {
 `.trim();
 }
 
-export function generateTerraformConfig(resources: TerraformSourceResource[], projectId: string): string {
+export function generateTerraformConfig(
+  resources: TerraformSourceResource[],
+  projectId: string,
+  options: { disableDeletionProtection?: boolean } = {},
+): string {
   const defaultRegion = resources[0] ? toGcpRegion(resources[0].region) : "us-central1";
 
   const header = hcl`
@@ -192,7 +196,7 @@ provider "google" {
       case "S3_BUCKET":
         return s3Block(resource, projectId);
       case "RDS_INSTANCE":
-        return rdsBlock(resource);
+        return rdsBlock(resource, options.disableDeletionProtection ?? false);
       case "LAMBDA_FUNCTION":
         return lambdaBlock(resource);
       default:

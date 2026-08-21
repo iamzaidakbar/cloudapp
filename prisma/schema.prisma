@@ -45,6 +45,7 @@ model Tenant {
   terraformRuns  TerraformRun[]
   applyRuns      ApplyRun[]
   verificationRuns VerificationRun[]
+  rollbackRuns   RollbackRun[]
 
   @@map("tenants")
 }
@@ -318,6 +319,7 @@ enum MigrationPlanStatus {
   DRAFT
   APPROVED
   CANCELLED
+  ROLLED_BACK
 }
 
 // Sourced from the latest SUCCEEDED ComparisonRun's items — deliberately NOT
@@ -344,6 +346,7 @@ model MigrationPlan {
   approvedAt        DateTime?
   approvedByAdminId String?
   cancelledAt       DateTime?
+  rolledBackAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -352,6 +355,7 @@ model MigrationPlan {
   terraformRuns TerraformRun[]
   applyRuns     ApplyRun[]
   verificationRuns VerificationRun[]
+  rollbackRuns  RollbackRun[]
 
   @@unique([tenantId, sequenceNumber])
   @@index([tenantId, status])
@@ -524,4 +528,42 @@ model VerificationCheck {
 
   @@index([tenantId, verificationRunId])
   @@map("verification_checks")
+}
+
+enum RollbackRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// A real `terraform destroy` against an APPROVED plan's persisted apply
+// state — the one model whose existence means real GCP infrastructure was
+// permanently torn down. `destroy` is invoked only from
+// lib/terraform/cli.ts's terraformDestroy, reachable only through this
+// model's full guard chain (see app/api/migrations/[id]/rollback/route.ts).
+model RollbackRun {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  migrationPlanId String
+  migrationPlan   MigrationPlan @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  version Int
+  status  RollbackRunStatus @default(QUEUED)
+
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+
+  destroyOutput      String?
+  resourcesDestroyed Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([migrationPlanId, version])
+  @@index([tenantId, status])
+  @@map("rollback_runs")
 }

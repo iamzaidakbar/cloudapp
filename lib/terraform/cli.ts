@@ -12,10 +12,12 @@ const PLUGIN_CACHE_DIR = path.join(process.cwd(), ".terraform-plugin-cache");
 type CliResult = { success: boolean; output: string };
 
 // This module is the ONLY place a `terraform` subprocess is ever spawned in
-// this codebase. `apply` (Migration Execution) is implemented below —
-// `destroy` is still not implemented here or anywhere else, not merely
-// gated, so there is no code path in this codebase capable of tearing down
-// real infrastructure. Rollback is a distinct, later phase.
+// this codebase. `apply` and `destroy` (Migration Execution / Rollback) are
+// both implemented below. `terraformDestroy` is reachable only through
+// lib/terraform/run-rollback.ts, which itself is only invoked from
+// app/api/migrations/[id]/rollback/route.ts's full guard chain: plan not
+// already CANCELLED/ROLLED_BACK, real provisioned resources on record, and a
+// typed confirmation (the plan's sequence number) matched server-side.
 async function run(cwd: string, args: string[], allowedExitCodes: number[] = [0]): Promise<CliResult> {
   try {
     const { stdout } = await execFileAsync("terraform", args, {
@@ -62,4 +64,11 @@ export async function terraformShowJson(cwd: string): Promise<CliResult> {
 // outcome matches what was already shown and approved.
 export async function terraformApply(cwd: string): Promise<CliResult> {
   return run(cwd, ["apply", "-no-color", "-input=false", "-auto-approve"]);
+}
+
+// Permanently tears down real GCP infrastructure. See this module's header
+// comment for the full guard chain that must pass before this is ever
+// reachable — there is no other, lighter-gated code path to it.
+export async function terraformDestroy(cwd: string): Promise<CliResult> {
+  return run(cwd, ["destroy", "-no-color", "-input=false", "-auto-approve"]);
 }

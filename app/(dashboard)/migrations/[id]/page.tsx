@@ -4,6 +4,7 @@ import { getMigrationPlan } from "@/lib/migrations";
 import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getLatestApplyRun } from "@/lib/apply-runs";
 import { getLatestVerificationRun } from "@/lib/verification-runs";
+import { getLatestRollbackRun } from "@/lib/rollback-runs";
 import { MigrationStatusBadge } from "@/components/migrations/migration-status-badge";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
@@ -11,6 +12,7 @@ import { PlanActions } from "@/components/migrations/plan-actions";
 import { TerraformPanel } from "@/components/migrations/terraform-panel";
 import { ApplyPanel } from "@/components/migrations/apply-panel";
 import { VerificationPanel } from "@/components/migrations/verification-panel";
+import { RollbackPanel } from "@/components/migrations/rollback-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -26,6 +28,9 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   const applyRun = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded ? await getLatestApplyRun(tenant.id, id) : null;
   const canExecute = terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded === true;
   const verificationRun = applyRun?.status === "SUCCEEDED" ? await getLatestVerificationRun(tenant.id, id) : null;
+  const provisionedResources = plan.resources.filter((r) => r.gcpResourceSelfLink);
+  const canRollback = plan.status === "APPROVED" && provisionedResources.length > 0;
+  const rollbackRun = canRollback ? await getLatestRollbackRun(tenant.id, id) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -77,6 +82,21 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
         </Alert>
       ) : null}
 
+      {plan.status === "ROLLED_BACK" ? (
+        <Alert>
+          <AlertDescription>
+            This migration was rolled back
+            {plan.rolledBackAt ? (
+              <>
+                {" "}
+                on <FormattedDateTime value={plan.rolledBackAt} />
+              </>
+            ) : null}
+            — all its provisioned resources were destroyed.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <MigrationResourcesTable resources={plan.resources} />
 
       {plan.status === "APPROVED" ? (
@@ -87,6 +107,15 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
 
       {applyRun?.status === "SUCCEEDED" ? (
         <VerificationPanel migrationPlanId={plan.id} initialVerificationRun={verificationRun} />
+      ) : null}
+
+      {canRollback ? (
+        <RollbackPanel
+          migrationPlanId={plan.id}
+          sequenceNumber={plan.sequenceNumber}
+          provisionedResources={provisionedResources}
+          initialRollbackRun={rollbackRun}
+        />
       ) : null}
     </div>
   );

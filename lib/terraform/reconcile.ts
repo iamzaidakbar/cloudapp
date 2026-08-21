@@ -40,3 +40,20 @@ export async function reconcileStaleTerraformRuns(tenantId: string, staleAfterMs
     }),
   );
 }
+
+// Same reasoning and threshold as reconcileStaleApplyRuns — destroy can
+// involve a real Cloud SQL teardown, comparably slow to creating one.
+export async function reconcileStaleRollbackRuns(tenantId: string, staleAfterMs = 30 * 60 * 1000) {
+  const staleBefore = new Date(Date.now() - staleAfterMs);
+
+  await withTenantContext(tenantId, (tx) =>
+    tx.rollbackRun.updateMany({
+      where: { tenantId, status: "RUNNING", startedAt: { lt: staleBefore } },
+      data: {
+        status: "FAILED",
+        finishedAt: new Date(),
+        errorMessage: "Rollback interrupted (server restarted or exceeded the maximum expected duration).",
+      },
+    }),
+  );
+}
