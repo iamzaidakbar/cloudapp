@@ -144,7 +144,7 @@ kubectl -n development port-forward svc/cloudshiftg-web 8080:80
 - [ ] Audit real or blocked only by tenant role misconfig (not missing app keys)
 
 **Handoff**
-- [ ] Phase C next (remote TF state + Job prove-out)
+- [ ] Phase C next (remote TF state + Job prove-out) — see [docs/PHASE_C_CHECKLIST.md](PHASE_C_CHECKLIST.md)
 
 ---
 

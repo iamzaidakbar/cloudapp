@@ -40,6 +40,12 @@ spec:
               value: "{{ .Values.image.registry }}/terraform-job:{{ .Values.image.terraformJobTag }}"
             - name: TERRAFORM_JOB_SERVICE_ACCOUNT
               value: {{ .Values.serviceAccount.terraformJob.name | quote }}
+            {{- if .Values.cloudsql.enabled }}
+            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              value: {{ .Values.cloudsql.instanceConnectionName | quote }}
+            - name: CLOUDSQL_PROXY_IMAGE
+              value: {{ .Values.cloudsql.proxyImage | quote }}
+            {{- end }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:

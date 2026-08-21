@@ -24,12 +24,19 @@ gcloud services enable \
 
 ## Apply
 
+Remote state lives in GCS (Phase C). First-time bootstrap of the bucket is
+documented in [docs/PHASE_C_CHECKLIST.md](../docs/PHASE_C_CHECKLIST.md).
+
 ```bash
 cd infra
 terraform init
 terraform plan  -var-file=environments/dev.tfvars
 terraform apply -var-file=environments/dev.tfvars
 ```
+
+State bucket: `cloudshiftg-tf-state-<project_id>`, prefix `platform/development`
+(see `backend.tf`). Operators need object read/write on that bucket (e.g.
+`roles/storage.objectAdmin` on the bucket, or project-level storage admin).
 
 Terraform creates SQL users, Secret Manager **versions** (proxy-form DB URLs + session secret), WI bindings, and AR reader for Autopilot nodes.
 
@@ -41,3 +48,5 @@ Then follow Phase A scripts (from repo root):
 
 CSI sync (no manual K8s Secret) is Phase B — see [docs/PHASE_B_CHECKLIST.md](../docs/PHASE_B_CHECKLIST.md)
 and [deploy/external-secrets/README.md](../deploy/external-secrets/README.md).
+
+Remote TF state + Job prove-out is Phase C — see [docs/PHASE_C_CHECKLIST.md](../docs/PHASE_C_CHECKLIST.md).

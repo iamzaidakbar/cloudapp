@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: phase-c-db-prove
+  namespace: development
+  labels:
+    app: cloudshiftg
+    cloudshiftg/job-type: prove
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: cloudshiftg-terraform-job
+        cloudshiftg/job-type: prove
+    spec:
+      serviceAccountName: cloudshiftg-terraform-job
+      restartPolicy: Never
+      initContainers:
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.3
+          imagePullPolicy: IfNotPresent
+          restartPolicy: Always
+          args:
+            - "--structured-logs"
+            - "--private-ip"
+            - "--port=5432"
+            - "project-7fe2c753-1df6-4821-bf9:us-east1:cloudshiftg-pg-development"
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      containers:
+        - name: terraform-job
+          image: us-east1-docker.pkg.dev/project-7fe2c753-1df6-4821-bf9/cloudshiftg/terraform-job:phase-c
+          command:
+            - node
+            - -e
+            - |
+              const { Client } = require('pg');
+              (async () => {
+                for (let i = 0; i < 30; i++) {
+                  try {
+                    const c = new Client({ connectionString: process.env.DATABASE_URL });
+                    await c.connect();
+                    const r = await c.query('SELECT 1 AS ok');
+                    await c.end();
+                    console.log(JSON.stringify({ prove: 'db_ok', ok: r.rows[0].ok }));
+                    process.exit(0);
+                  } catch (e) {
+                    console.log('wait', i, String(e.message || e).slice(0, 80));
+                    await new Promise((r) => setTimeout(r, 2000));
+                  }
+                }
+                console.error('db prove failed');
+                process.exit(1);
+              })();
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cloudshiftg-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "500m"
+              memory: 512Mi

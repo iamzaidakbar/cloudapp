@@ -35,6 +35,71 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
 
   const serviceAccount =
     process.env.TERRAFORM_JOB_SERVICE_ACCOUNT?.trim() || "cloudshiftg-terraform-job";
+  const cloudSqlInstance =
+    process.env.CLOUDSQL_INSTANCE_CONNECTION_NAME?.trim() || "";
+  const cloudSqlProxyImage =
+    process.env.CLOUDSQL_PROXY_IMAGE?.trim() ||
+    "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.3";
+
+  const mainContainer: k8s.V1Container = {
+    name: "terraform-job",
+    image,
+    env: [
+      { name: "JOB_TYPE", value: job.type },
+      { name: "JOB_RUN_ID", value: job.runId },
+      { name: "JOB_TENANT_ID", value: job.tenantId },
+      ...(job.migrationPlanId
+        ? [{ name: "JOB_MIGRATION_PLAN_ID", value: job.migrationPlanId }]
+        : []),
+      { name: "GCP_PROJECT_ID", value: process.env.GCP_PROJECT_ID ?? "" },
+      {
+        name: "APP_DATABASE_URL",
+        valueFrom: {
+          secretKeyRef: {
+            name: "cloudshiftg-secrets",
+            key: "APP_DATABASE_URL",
+            optional: true,
+          },
+        },
+      },
+      {
+        name: "DATABASE_URL",
+        valueFrom: {
+          secretKeyRef: {
+            name: "cloudshiftg-secrets",
+            key: "DATABASE_URL",
+            optional: true,
+          },
+        },
+      },
+    ],
+    resources: {
+      requests: { cpu: "250m", memory: "512Mi" },
+      limits: { cpu: "1", memory: "2Gi" },
+    },
+  };
+
+  // Native sidecar (restartPolicy Always) so the Job completes when terraform-job exits.
+  // DB URLs use 127.0.0.1:5432 (Secret Manager proxy form), same as Helm web/worker.
+  const initContainers: k8s.V1Container[] = [];
+  if (cloudSqlInstance) {
+    initContainers.push({
+      name: "cloud-sql-proxy",
+      image: cloudSqlProxyImage,
+      imagePullPolicy: "IfNotPresent",
+      args: ["--structured-logs", "--private-ip", "--port=5432", cloudSqlInstance],
+      restartPolicy: "Always",
+      securityContext: {
+        runAsNonRoot: true,
+        allowPrivilegeEscalation: false,
+        capabilities: { drop: ["ALL"] },
+      },
+      resources: {
+        requests: { cpu: "50m", memory: "64Mi" },
+        limits: { cpu: "250m", memory: "128Mi" },
+      },
+    } as k8s.V1Container);
+  }
 
   await batch.createNamespacedJob({
     namespace,
@@ -68,45 +133,8 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
           spec: {
             serviceAccountName: serviceAccount,
             restartPolicy: "Never",
-            containers: [
-              {
-                name: "terraform-job",
-                image,
-                env: [
-                  { name: "JOB_TYPE", value: job.type },
-                  { name: "JOB_RUN_ID", value: job.runId },
-                  { name: "JOB_TENANT_ID", value: job.tenantId },
-                  ...(job.migrationPlanId
-                    ? [{ name: "JOB_MIGRATION_PLAN_ID", value: job.migrationPlanId }]
-                    : []),
-                  { name: "GCP_PROJECT_ID", value: process.env.GCP_PROJECT_ID ?? "" },
-                  {
-                    name: "APP_DATABASE_URL",
-                    valueFrom: {
-                      secretKeyRef: {
-                        name: "cloudshiftg-secrets",
-                        key: "APP_DATABASE_URL",
-                        optional: true,
-                      },
-                    },
-                  },
-                  {
-                    name: "DATABASE_URL",
-                    valueFrom: {
-                      secretKeyRef: {
-                        name: "cloudshiftg-secrets",
-                        key: "DATABASE_URL",
-                        optional: true,
-                      },
-                    },
-                  },
-                ],
-                resources: {
-                  requests: { cpu: "250m", memory: "512Mi" },
-                  limits: { cpu: "1", memory: "2Gi" },
-                },
-              },
-            ],
+            initContainers: initContainers.length ? initContainers : undefined,
+            containers: [mainContainer],
           },
         },
       },
