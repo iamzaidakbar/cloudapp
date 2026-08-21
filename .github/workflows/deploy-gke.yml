@@ -1,0 +1,81 @@
+name: Deploy GKE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: development
+        type: choice
+        options: [development, production]
+
+env:
+  REGION: us-central1
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  AR_REPO: cloudshiftg
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set image tag
+        id: meta
+        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push images
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          REGISTRY: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}
+        run: |
+          docker build -t "$REGISTRY/web:$TAG" -f Dockerfile .
+          docker build -t "$REGISTRY/worker:$TAG" -f Dockerfile.worker .
+          docker build -t "$REGISTRY/terraform-job:$TAG" -f Dockerfile.terraform-job .
+          docker push "$REGISTRY/web:$TAG"
+          docker push "$REGISTRY/worker:$TAG"
+          docker push "$REGISTRY/terraform-job:$TAG"
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm ci
+          npx prisma migrate deploy
+
+      - name: Helm upgrade
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          REGISTRY: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}
+          NS: ${{ github.event.inputs.environment || 'development' }}
+        run: |
+          helm upgrade --install cloudshiftg deploy/helm/cloudshiftg \
+            --namespace "$NS" --create-namespace \
+            --set image.registry="$REGISTRY" \
+            --set image.webTag="$TAG" \
+            --set image.workerTag="$TAG" \
+            --set image.terraformJobTag="$TAG" \
+            --set env.GCP_PROJECT_ID="$PROJECT_ID" \
+            --wait --timeout 10m

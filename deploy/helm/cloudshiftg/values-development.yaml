@@ -1,0 +1,16 @@
+environment: development
+web:
+  replicas: 1
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+worker:
+  replicas: 1
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+ingress:
+  enabled: true
+  host: cloudshiftg-dev.example.com

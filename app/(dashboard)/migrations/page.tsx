@@ -34,6 +34,9 @@ export default async function MigrationsPage({
 
   const selectable = await getSelectableComparisonItems(admin.tenantId);
   const canCreate = admin.role === "TENANT_ADMIN" && Boolean(selectable && selectable.items.length > 0);
+  const disabledReason = !selectable
+    ? "Run a successful AWS to GCP comparison first."
+    : "Latest comparison has no migratable resources (EC2, S3, RDS, or Lambda). VPCs alone cannot start a plan — create one in AWS (e.g. an S3 bucket), then re-run Audit and Comparison.";
 
   const newMigrationLink = (
     <Link
@@ -53,7 +56,7 @@ export default async function MigrationsPage({
         : (
             <Tooltip>
               <TooltipTrigger render={newMigrationLink} />
-              <TooltipContent>Run a successful AWS to GCP comparison first</TooltipContent>
+              <TooltipContent className="max-w-xs text-balance">{disabledReason}</TooltipContent>
             </Tooltip>
           )
       : null;
@@ -76,7 +79,7 @@ export default async function MigrationsPage({
             description={
               canCreate
                 ? "Select resources from your latest comparison to create a migration plan."
-                : "Run a successful AWS to GCP comparison first, then create a migration plan."
+                : disabledReason
             }
           />
         }

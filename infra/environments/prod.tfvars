@@ -1,0 +1,5 @@
+project_id   = "project-7fe2c753-1df6-4821-bf9"
+region       = "us-central1"
+environment  = "production"
+cluster_name = "cloudshiftg-autopilot"
+db_tier      = "db-custom-2-7680"

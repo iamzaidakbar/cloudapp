@@ -2,11 +2,11 @@ import { after } from "next/server";
 import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getActiveRollbackRun, getLatestRollbackRun, createRollbackRun } from "@/lib/rollback-runs";
-import { runRollback } from "@/lib/terraform/run-rollback";
 import { reconcileStaleRollbackRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
 import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
@@ -51,10 +51,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const rollbackRun = await createRollbackRun(admin.tenantId, id);
 
-    after(() =>
-      runRollback(rollbackRun.id, admin.tenantId).catch((error) =>
-        console.error("Rollback run failed unexpectedly:", error),
-      ),
+    await enqueueJob(
+      {
+        type: "ROLLBACK",
+        tenantId: admin.tenantId,
+        runId: rollbackRun.id,
+        migrationPlanId: id,
+      },
+      { after },
     );
 
     await logAdminAction({

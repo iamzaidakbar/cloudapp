@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.fullname }}-web
+  labels:
+    app.kubernetes.io/name: cloudshiftg
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudshiftg
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cloudshiftg
+        app.kubernetes.io/component: web
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.web.name }}
+      containers:
+        - name: web
+          image: "{{ .Values.image.registry }}/web:{{ .Values.image.webTag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: JOB_RUNTIME
+              value: {{ .Values.env.JOB_RUNTIME | quote }}
+            - name: PUBSUB_TOPIC_PREFIX
+              value: {{ .Values.env.PUBSUB_TOPIC_PREFIX | quote }}
+            - name: GCP_PROJECT_ID
+              value: {{ .Values.env.GCP_PROJECT_ID | quote }}
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: TERRAFORM_JOB_IMAGE
+              value: "{{ .Values.image.registry }}/terraform-job:{{ .Values.image.terraformJobTag }}"
+            - name: TERRAFORM_JOB_SERVICE_ACCOUNT
+              value: {{ .Values.serviceAccount.terraformJob.name | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: DATABASE_URL
+            - name: APP_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: APP_DATABASE_URL
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: SESSION_SECRET
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.fullname }}-web
+  labels:
+    app.kubernetes.io/name: cloudshiftg
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: cloudshiftg
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

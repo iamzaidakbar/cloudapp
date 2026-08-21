@@ -3,11 +3,11 @@ import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getActiveTerraformRun, getLatestTerraformRun, createTerraformRun, getTerraformSourceResources } from "@/lib/terraform-runs";
 import { generateTerraformConfig } from "@/lib/terraform/generate";
-import { runTerraformCli } from "@/lib/terraform/run-terraform";
 import { reconcileStaleTerraformRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
 import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
@@ -43,10 +43,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const terraformConfig = generateTerraformConfig(resources, env.GCP_PROJECT_ID);
     const terraformRun = await createTerraformRun(admin.tenantId, id, terraformConfig);
 
-    after(() =>
-      runTerraformCli(terraformRun.id, admin.tenantId).catch((error) =>
-        console.error("Terraform run failed unexpectedly:", error),
-      ),
+    await enqueueJob(
+      {
+        type: "TERRAFORM",
+        tenantId: admin.tenantId,
+        runId: terraformRun.id,
+        migrationPlanId: id,
+      },
+      { after },
     );
 
     await logAdminAction({

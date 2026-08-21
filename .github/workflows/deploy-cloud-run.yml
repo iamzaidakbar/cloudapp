@@ -1,0 +1,61 @@
+name: Deploy Cloud Run (parallel path)
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service to deploy
+        required: true
+        default: web
+        type: choice
+        options: [web, worker]
+
+env:
+  REGION: us-central1
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  AR_REPO: cloudshiftg
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push
+        env:
+          TAG: ${{ github.sha }}
+          REGISTRY: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO }}
+          TARGET: ${{ github.event.inputs.service }}
+        run: |
+          if [ "$TARGET" = "web" ]; then
+            docker build -t "$REGISTRY/web:$TAG" -f Dockerfile .
+            docker push "$REGISTRY/web:$TAG"
+            gcloud run deploy cloudshiftg-web \
+              --image "$REGISTRY/web:$TAG" \
+              --region "$REGION" \
+              --allow-unauthenticated \
+              --set-env-vars "JOB_RUNTIME=pubsub,GCP_PROJECT_ID=$PROJECT_ID" \
+              --set-secrets "DATABASE_URL=cloudshiftg-database-url:latest,APP_DATABASE_URL=cloudshiftg-app-database-url:latest,SESSION_SECRET=cloudshiftg-session-secret:latest"
+          else
+            docker build -t "$REGISTRY/worker:$TAG" -f Dockerfile.worker .
+            docker push "$REGISTRY/worker:$TAG"
+            gcloud run deploy cloudshiftg-worker \
+              --image "$REGISTRY/worker:$TAG" \
+              --region "$REGION" \
+              --no-allow-unauthenticated \
+              --set-env-vars "JOB_RUNTIME=pubsub,GCP_PROJECT_ID=$PROJECT_ID" \
+              --set-secrets "DATABASE_URL=cloudshiftg-database-url:latest,APP_DATABASE_URL=cloudshiftg-app-database-url:latest,SESSION_SECRET=cloudshiftg-session-secret:latest"
+          fi

@@ -14,8 +14,8 @@ This README covers what's built so far: the **application foundation** (authenti
 - `@aws-sdk/client-{ec2,s3,rds,lambda,elastic-load-balancing-v2,iam,cloudwatch-logs,cloudwatch,cost-explorer}` for real multi-service AWS infrastructure inventory, using the same short-lived assumed-role credentials, plus the same dev-adapter pattern for local testing
 - `@aws-sdk/client-pricing` (AWS Price List API) + the GCP Cloud Billing Catalog REST API (plain `fetch`, API-key auth) for real AWS→GCP cost comparison, cached in Postgres with a documented TTL — never hardcoded prices — plus the same dev-adapter pattern for local testing
 - The `terraform` CLI, invoked as a real subprocess (`init`/`validate`/`plan`/`show`/`apply`/`destroy`), authenticating via your local `gcloud auth application-default login` session — no service-account key file is ever generated or stored. `destroy` is only ever reachable through Rollback's full guard chain (plan not already cancelled/rolled back, real provisioned resources on record, typed confirmation matched server-side) — see `lib/terraform/cli.ts`.
-- The `gcloud` CLI (via `lib/gcp/auth.ts`), used only to mint a short-lived access token for Verification's real GCP REST health checks — the same Application Default Credentials session `terraform apply`/`destroy` already rely on
-- Next.js `after()` for background audit/comparison/Terraform/apply execution (fast HTTP ack, real work continues server-side) — no external job queue yet, by design; see Troubleshooting for what that means for interrupted runs
+- The `gcloud` CLI / `google-auth-library` (via `lib/gcp/auth.ts`) for GCP access tokens — Workload Identity on GKE, ADC locally
+- Background jobs via `lib/jobs` (`JOB_RUNTIME=inline|pubsub|k8s-job`): local default is inline (`after()`); GKE uses Pub/Sub workers for audits/comparisons and Kubernetes Jobs for terraform/apply/rollback
 
 ## Prerequisites
 
@@ -41,7 +41,10 @@ Fill in `.env`:
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` / `AWS_REGION` | Optional. CloudShift-G's own AWS identity, used only to call `sts:AssumeRole` against a tenant-provided role ARN. Leave unset to use the simulated dev adapter. |
 | `AWS_COST_EXPLORER_ENABLED` | Optional, defaults to unset (off). Cost Explorer's `GetCostAndUsage` costs a small real fee per API call and needs up to 24h to populate on a fresh account — it's never called just because AWS credentials are configured. Set to `"true"` to opt in once you're ready. |
 | `GCP_BILLING_API_KEY` | Optional. An API key for any GCP project with the "Cloud Billing API" enabled — used only to read public GCP list pricing for the comparison feature (global public pricing, not tied to a specific billing account; no OAuth/service account needed). Leave unset to use the simulated dev adapter for GCP pricing. AWS-side comparison pricing needs no separate credential — it reuses `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` above (a direct call, not cross-account, since price list data isn't tenant-scoped). |
-| `GCP_PROJECT_ID` | Required only for Terraform generation — the real GCP project generated Terraform targets, and that `terraform plan` runs against. No dev-adapter fallback (generating config with no target project is meaningless). Authenticates via your local `gcloud` ADC session, not a stored key. |
+| `GCP_PROJECT_ID` | Required only for Terraform generation — the real GCP project generated Terraform targets, and that `terraform plan` runs against. No dev-adapter fallback (generating config with no target project is meaningless). Authenticates via ADC / Workload Identity, not a stored key. |
+| `JOB_RUNTIME` | Optional. `inline` (local default), `pubsub` (audits/comparisons via Pub/Sub worker), or `k8s-job` (terraform family as Kubernetes Jobs; audits/comparisons still use Pub/Sub). |
+| `PUBSUB_TOPIC_PREFIX` | Optional. Defaults to `cloudshiftg`. |
+| `TERRAFORM_JOB_IMAGE` / `K8S_NAMESPACE` | Required when using `k8s-job` runtime for terraform/apply/rollback. |
 
 ## Database setup
 
@@ -59,6 +62,8 @@ On first container creation, `db/init/01-create-app-role.sql` automatically crea
 
 ```bash
 npm run dev
+# Optional (only if JOB_RUNTIME=pubsub locally):
+# npm run worker
 ```
 
 Open http://localhost:3000 (Next.js falls back to the next free port if 3000 is taken). Either register a new organization at `/onboarding` (self-service — creates a Tenant and its first Tenant Admin) or log in as the seeded Platform Operator with `PLATFORM_OPERATOR_EMAIL` / `PLATFORM_OPERATOR_PASSWORD` from your `.env`.
@@ -111,26 +116,36 @@ components/
   auth/                     Login form
   ui/                       shadcn/ui primitives
 lib/
+  jobs/                     enqueue adapters (inline / Pub/Sub / K8s Job), handlers, types
   auth/                     Session, password hashing, auth guards
   aws/                      STS integration, dev adapter, verification orchestrator
     audit/                   Real AWS collectors, dev adapter, findings engine, job runner
-  gcp/is-configured.ts      GCP Billing API key check
+  gcp/                      Auth (ADC / Workload Identity), billing configured check
   pricing/                  AWS Price List + GCP Billing Catalog fetchers, pricing cache, AWS<->GCP
                              instance mapping, dev adapter, comparison job runner
   terraform/                HCL generator (generate.ts), the only module that ever spawns a `terraform`
-                             subprocess (cli.ts — init/validate/plan/show/apply, never destroy), the
-                             Terraform + apply job runners, stale-run reconciliation
+                             subprocess (cli.ts — init/validate/plan/show/apply/destroy), the
+                             Terraform + apply + rollback job runners, stale-run reconciliation
   db/with-tenant.ts         Row-level-security session context helper
   tenant.ts, audits.ts, infrastructure.ts, comparisons.ts, migrations.ts, terraform-runs.ts, apply-runs.ts
                              Shared tenant/audit/resource/comparison/migration/Terraform/apply read+write helpers
   api/pagination.ts         Shared pagination query-param parsing
   validation/               Zod schemas
   db.ts, env.ts, decimal.ts, format.ts   Prisma client, validated env vars, serialization helpers
+workers/
+  main.ts                   Pub/Sub consumer + one-shot K8s Job entrypoint
+infra/                      Platform Terraform (Autopilot, VPC, AR, SQL, Pub/Sub, WI)
+deploy/
+  helm/cloudshiftg/         Helm chart (web, worker, Ingress, HPA, PDB, NetworkPolicy)
+  cloudrun/                 Parallel Cloud Run path
+docs/
+  UI_VERIFICATION_CHECKLIST.md
 prisma/
   schema.prisma, seed.ts, migrations/
 db/init/                    One-time Postgres role setup (mounted into the container)
 proxy.ts                    Route guard (Next.js 16's replacement for middleware.ts)
 docker-compose.yml           Local Postgres
+Dockerfile*                 web / worker / terraform-job images
 ```
 
 ## API endpoints
@@ -177,6 +192,33 @@ docker-compose.yml           Local Postgres
 | `npm run prisma:migrate` | Run a new migration in dev |
 | `npm run prisma:seed` | Upsert the Platform Operator account from `.env` |
 | `npm run prisma:studio` | Open Prisma Studio |
+| `npm run worker` | Start the Pub/Sub worker (`workers/main.ts`) |
+| `npm run worker:dev` | Worker with file watch |
+
+## Deploy (GKE Autopilot)
+
+Platform infra lives under `infra/` (VPC, Autopilot cluster, Artifact Registry, Cloud SQL, Pub/Sub, Workload Identity GSAs, Secret Manager shells). App charts live under `deploy/helm/cloudshiftg`. Cloud Run remains available as a parallel path under `deploy/cloudrun/` until GKE production is approved.
+
+```bash
+# 1) Platform
+cd infra && terraform init && terraform apply -var-file=environments/dev.tfvars
+
+# 2) Images
+docker build -t $REGISTRY/web:$TAG -f Dockerfile .
+docker build -t $REGISTRY/worker:$TAG -f Dockerfile.worker .
+docker build -t $REGISTRY/terraform-job:$TAG -f Dockerfile.terraform-job .
+
+# 3) Migrate, then Helm
+npx prisma migrate deploy
+helm upgrade --install cloudshiftg deploy/helm/cloudshiftg -n development --create-namespace \
+  --set image.registry=$REGISTRY --set image.webTag=$TAG ...
+```
+
+CI: `.github/workflows/deploy-gke.yml` (build → AR → migrate → Helm). Observability notes: `deploy/OBSERVABILITY.md`.
+
+## UI verification checklist
+
+After deploy (local or GKE), walk through **[docs/UI_VERIFICATION_CHECKLIST.md](docs/UI_VERIFICATION_CHECKLIST.md)** — audits → comparisons → migration approve/terraform/apply/rollback, Jobs/Audit Log, RBAC, and GKE-specific Job/worker log checks.
 
 ## Verification checklist
 
@@ -247,7 +289,7 @@ docker-compose.yml           Local Postgres
 - **RLS seems to do nothing** — check the role the app actually connects as (`APP_DATABASE_URL`) is not a Postgres superuser and doesn't have `BYPASSRLS`; run `\du` in `psql` to check role attributes.
 - **Port 3000 already in use** — Next.js automatically falls back to 3001; check your terminal output for the actual URL.
 - **Real audits report every service as failed with AccessDenied** — expected until you attach a read-only IAM policy to the connected role. It needs, at minimum: `ec2:Describe*`, the S3 read calls (`ListAllMyBuckets`, `GetBucketLocation`/`Tagging`/`Acl`/`PolicyStatus`/`Policy`/`EncryptionConfiguration`/`PublicAccessBlock`), `rds:DescribeDBInstances`, `lambda:ListFunctions`, `elasticloadbalancing:Describe*`, `iam:ListRoles`, `logs:DescribeLogGroups`, and optionally `cloudwatch:GetMetricData` (utilization findings just don't fire without it — the audit still succeeds).
-- **An audit seems stuck in "Running" forever** — there's no external job queue/worker yet; a long-running audit relies on the Next.js process staying alive (`after()`). If the dev server was restarted mid-run, the next request to any `/api/audits*` route auto-reconciles runs stuck for >20 minutes to `FAILED` rather than leaving them stuck — just reload the page.
+- **An audit seems stuck in "Running" or "Queued" forever** — with `JOB_RUNTIME=inline`, work runs in-process via `after()` and needs the Next.js process to stay alive. With `pubsub`, ensure the worker is running (`npm run worker` or the worker Deployment). Stale RUNNING (>20m) and abandoned QUEUED (>5m) runs are auto-reconciled to `FAILED` on the next `/api/audits*` request — reload the page.
 - **Cost/utilization show "N/A" or "Unavailable"** — this is the honest state, not a bug: Cost Explorer is opt-in (`AWS_COST_EXPLORER_ENABLED`) and CloudWatch/Cost Explorer calls degrade gracefully on missing permissions rather than failing the whole audit.
 - **"Run Comparison" is disabled** — a comparison sources its resources from the latest **successful** audit; run one first at `/audits`.
 - **Comparison shows real AWS but simulated GCP prices, or vice versa** — this can't actually happen by design (see checklist #18) — if you see mixed real/simulated data, that's a bug, not expected degraded behavior.
@@ -267,4 +309,4 @@ docker-compose.yml           Local Postgres
 
 ## Roadmap
 
-Data transfer/cutover and the real GKE deployment integration (mandatory per the current spec — Terraform-provisioned GKE Autopilot cluster, Workload Identity, Secret Manager via the CSI driver, separate web/worker Deployments, Terraform executions as isolated Jobs, environment-specific Helm/Kustomize configs) are built as separate vertical slices in later phases, each verified end-to-end before the next one starts.
+Data transfer/cutover remains a later vertical slice. **GKE Autopilot platform scaffolding is in-repo** (`infra/`, `deploy/helm/`, worker + Job images, Pub/Sub enqueue path); production cutover still requires applying Terraform with a real project ID, wiring Secret Manager versions, and approving GKE over Cloud Run for prod.

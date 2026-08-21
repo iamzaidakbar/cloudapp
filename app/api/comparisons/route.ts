@@ -8,7 +8,6 @@ import {
   getLatestSucceededAuditRun,
   listComparisonRuns,
 } from "@/lib/comparisons";
-import { runComparison } from "@/lib/pricing/run-comparison";
 import { isAwsConfigured } from "@/lib/aws/is-configured";
 import { isGcpBillingConfigured } from "@/lib/gcp/is-configured";
 import { COMPARABLE_SERVICE_TYPES } from "@/lib/pricing/types";
@@ -16,6 +15,7 @@ import { withTenantContext } from "@/lib/db/with-tenant";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 
 export async function POST() {
   let admin;
@@ -54,10 +54,9 @@ export async function POST() {
       gcpDataSource,
     );
 
-    after(() =>
-      runComparison(comparisonRun.id, admin.tenantId).catch((error) =>
-        console.error("Comparison run failed unexpectedly:", error),
-      ),
+    await enqueueJob(
+      { type: "COMPARISON", tenantId: admin.tenantId, runId: comparisonRun.id },
+      { after },
     );
 
     await logAdminAction({
@@ -71,8 +70,6 @@ export async function POST() {
 
     return apiSuccess({ comparisonRun }, 202);
   } catch (error) {
-    // Same race as POST /api/audits: two near-simultaneous requests can both
-    // pass the getActiveComparisonRun() check before either row is inserted.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return apiError("A comparison is already in progress", 409);
     }

@@ -3,10 +3,10 @@ import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getMigrationPlan } from "@/lib/migrations";
 import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getActiveApplyRun, getLatestApplyRun, createApplyRun } from "@/lib/apply-runs";
-import { runApply } from "@/lib/terraform/run-apply";
 import { reconcileStaleApplyRuns } from "@/lib/terraform/reconcile";
 import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
@@ -41,8 +41,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
     const applyRun = await createApplyRun(admin.tenantId, id);
 
-    after(() =>
-      runApply(applyRun.id, admin.tenantId).catch((error) => console.error("Apply run failed unexpectedly:", error)),
+    await enqueueJob(
+      {
+        type: "APPLY",
+        tenantId: admin.tenantId,
+        runId: applyRun.id,
+        migrationPlanId: id,
+      },
+      { after },
     );
 
     await logAdminAction({

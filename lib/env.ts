@@ -13,6 +13,10 @@ const envSchema = z.object({
   AWS_COST_EXPLORER_ENABLED: z.string().optional(),
   GCP_BILLING_API_KEY: z.string().optional(),
   GCP_PROJECT_ID: z.string().optional(),
+  JOB_RUNTIME: z.enum(["inline", "pubsub", "k8s-job"]).optional(),
+  PUBSUB_TOPIC_PREFIX: z.string().optional(),
+  TERRAFORM_JOB_IMAGE: z.string().optional(),
+  K8S_NAMESPACE: z.string().optional(),
 });
 
 export const env = envSchema.parse({
@@ -26,4 +30,8 @@ export const env = envSchema.parse({
   AWS_COST_EXPLORER_ENABLED: process.env.AWS_COST_EXPLORER_ENABLED,
   GCP_BILLING_API_KEY: process.env.GCP_BILLING_API_KEY,
   GCP_PROJECT_ID: process.env.GCP_PROJECT_ID,
+  JOB_RUNTIME: process.env.JOB_RUNTIME as "inline" | "pubsub" | "k8s-job" | undefined,
+  PUBSUB_TOPIC_PREFIX: process.env.PUBSUB_TOPIC_PREFIX,
+  TERRAFORM_JOB_IMAGE: process.env.TERRAFORM_JOB_IMAGE,
+  K8S_NAMESPACE: process.env.K8S_NAMESPACE,
 });

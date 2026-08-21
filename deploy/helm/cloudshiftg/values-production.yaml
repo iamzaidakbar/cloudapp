@@ -1,0 +1,19 @@
+environment: production
+web:
+  replicas: 3
+  hpa:
+    minReplicas: 3
+    maxReplicas: 12
+worker:
+  replicas: 2
+  hpa:
+    minReplicas: 2
+    maxReplicas: 16
+pdb:
+  web:
+    minAvailable: 2
+  worker:
+    minAvailable: 1
+ingress:
+  enabled: true
+  host: cloudshiftg.example.com

@@ -1,0 +1,34 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.fullname }}
+  annotations:
+    kubernetes if .Values.ingress.managedCertificate }}
+    networking.gke.io/managed-certificates: {{ .Values.fullname }}-cert
+    {{- end }}
+    kubernetes.ingress.kubernetes.io/redirect-to-https: "true"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.fullname }}-web
+                port:
+                  number: 80
+{{- if .Values.ingress.managedCertificate }}
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: {{ .Values.fullname }}-cert
+spec:
+  domains:
+    - {{ .Values.ingress.host }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.fullname }}-web
+spec:
+  minAvailable: {{ .Values.pdb.web.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudshiftg
+      app.kubernetes.io/component: web
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.fullname }}-worker
+spec:
+  minAvailable: {{ .Values.pdb.worker.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudshiftg
+      app.kubernetes.io/component: worker

@@ -4,11 +4,11 @@ import { requireTenantAdmin, requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { reconcileStaleAuditRuns } from "@/lib/aws/audit/reconcile";
 import { createAuditRun, getActiveAuditRun, listAuditRuns } from "@/lib/audits";
-import { runAudit } from "@/lib/aws/audit/run-audit";
 import { isAwsConfigured } from "@/lib/aws/is-configured";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { apiError, apiErrorFromAuth, apiSuccess } from "@/lib/api/response";
 import { logAdminAction } from "@/lib/admin-action-log";
+import { enqueueJob } from "@/lib/jobs/enqueue";
 
 export async function POST() {
   let admin;
@@ -37,8 +37,9 @@ export async function POST() {
     const dataSource = isAwsConfigured() ? "AWS" : "DEV_ADAPTER";
     const auditRun = await createAuditRun(admin.tenantId, dataSource);
 
-    after(() =>
-      runAudit(auditRun.id, admin.tenantId).catch((error) => console.error("Audit run failed unexpectedly:", error)),
+    await enqueueJob(
+      { type: "AUDIT", tenantId: admin.tenantId, runId: auditRun.id },
+      { after },
     );
 
     await logAdminAction({
@@ -52,10 +53,6 @@ export async function POST() {
 
     return apiSuccess({ auditRun }, 202);
   } catch (error) {
-    // Two near-simultaneous requests can both pass the getActiveAuditRun()
-    // check before either has inserted its row, then race on the
-    // (tenantId, version) unique constraint — treat that exactly like the
-    // normal already-in-progress case rather than a generic failure.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return apiError("An audit is already in progress", 409);
     }

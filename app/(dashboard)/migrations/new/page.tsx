@@ -62,7 +62,7 @@ export default async function NewMigrationPage() {
         <EmptyState
           icon={ArrowRightLeft}
           title="No resources to select"
-          description="Run a successful AWS to GCP comparison first — VPCs aren't individually migratable, so at least one EC2, S3, RDS, or Lambda resource is needed."
+          description="Latest comparison has no migratable resources (EC2, S3, RDS, or Lambda). VPCs alone cannot start a plan — create one in AWS (e.g. an S3 bucket), then re-run Audit and Comparison."
         />
       )}
     </div>

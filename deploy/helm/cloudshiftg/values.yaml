@@ -1,0 +1,76 @@
+fullname: cloudshiftg
+environment: development
+
+image:
+  registry: us-central1-docker.pkg.dev/PROJECT/cloudshiftg
+  webTag: latest
+  workerTag: latest
+  terraformJobTag: latest
+  pullPolicy: IfNotPresent
+
+web:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+serviceAccount:
+  web:
+    name: cloudshiftg-web
+    gcpServiceAccount: cloudshiftg-web@PROJECT.iam.gserviceaccount.com
+  worker:
+    name: cloudshiftg-worker
+    gcpServiceAccount: cloudshiftg-worker@PROJECT.iam.gserviceaccount.com
+  terraformJob:
+    name: cloudshiftg-terraform-job
+    gcpServiceAccount: cloudshiftg-tf-job@PROJECT.iam.gserviceaccount.com
+
+env:
+  JOB_RUNTIME: k8s-job
+  PUBSUB_TOPIC_PREFIX: cloudshiftg
+  GCP_PROJECT_ID: PROJECT
+  AWS_REGION: us-east-1
+
+secrets:
+  # External secret name created via CSI / ExternalSecrets / manual kubectl
+  name: cloudshiftg-secrets
+
+ingress:
+  enabled: true
+  className: gce
+  host: cloudshiftg.example.com
+  tls: true
+  managedCertificate: true
+
+pdb:
+  web:
+    minAvailable: 1
+  worker:
+    minAvailable: 1
+
+networkPolicy:
+  enabled: true
