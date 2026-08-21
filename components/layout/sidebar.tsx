@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Cloud } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { AdminMenu } from "@/components/layout/admin-menu";
 import { APP_NAME } from "@/lib/constants";
@@ -11,11 +10,14 @@ type SidebarProps = {
 
 export function Sidebar({ admin }: SidebarProps) {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-glass-border bg-glass-subtle supports-backdrop-filter:backdrop-blur-xl md:flex">
-      <div className="flex h-14 items-center gap-2 border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <Cloud className="size-5 text-primary" />
-          <span className="tracking-tight">{APP_NAME}</span>
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
+      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2.5 font-semibold tracking-tight"
+        >
+          <Cloud className="size-5" />
+          <span>{APP_NAME}</span>
         </Link>
       </div>
 
@@ -23,8 +25,7 @@ export function Sidebar({ admin }: SidebarProps) {
         <SidebarNav />
       </div>
 
-      <div className="px-2 pb-2">
-        <Separator className="mb-2" />
+      <div className="border-t border-sidebar-border px-2 py-2">
         <AdminMenu admin={admin} />
       </div>
     </aside>

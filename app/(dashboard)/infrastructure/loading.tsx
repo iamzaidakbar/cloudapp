@@ -13,7 +13,7 @@ export default function InfrastructureLoading() {
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-8 w-32" />
       </div>
-      <div className="flex flex-col gap-1.5 rounded-lg border p-3">
+      <div className="flex flex-col gap-1.5 rounded-none border border-border bg-card p-3">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="h-8 w-full" />
         ))}

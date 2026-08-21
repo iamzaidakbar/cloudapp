@@ -50,7 +50,7 @@ export function ConnectionSummary({ connection }: { connection: AwsConnection })
       {connection.verificationSource === "DEV_ADAPTER" ? (
         <div className="flex flex-col gap-2">
           <div>
-            <Badge variant="outline" className="border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <Badge variant="outline" className="border-border bg-muted text-foreground">
               Simulated (Dev Adapter)
             </Badge>
           </div>

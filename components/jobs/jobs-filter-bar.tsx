@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterBar } from "@/components/shared/filter-bar";
 import { JOB_TYPES, JOB_STATUSES } from "@/lib/jobs-shared";
 
 const TYPE_LABEL: Record<(typeof JOB_TYPES)[number], string> = {
@@ -37,7 +38,7 @@ export function JobsFilterBar() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <FilterBar>
       <Select value={searchParams.get("type") ?? "all"} onValueChange={(v) => updateParam("type", v)}>
         <SelectTrigger size="sm" className="w-36">
           <SelectValue placeholder="Type" />
@@ -65,6 +66,6 @@ export function JobsFilterBar() {
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </FilterBar>
   );
 }

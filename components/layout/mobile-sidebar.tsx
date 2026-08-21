@@ -11,7 +11,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { AdminMenu } from "@/components/layout/admin-menu";
 import { APP_NAME } from "@/lib/constants";
@@ -25,19 +24,22 @@ export function MobileSidebar({ admin }: MobileSidebarProps) {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger render={<Button variant="ghost" size="icon" />} className="md:hidden">
+      <SheetTrigger
+        render={<Button variant="ghost" size="icon" />}
+        className="md:hidden"
+      >
         <Menu className="size-5" />
         <span className="sr-only">Open navigation</span>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
-        <SheetHeader className="border-b">
+      <SheetContent side="left" className="w-72 gap-0 p-0">
+        <SheetHeader className="border-b border-border">
           <SheetTitle className="text-base">
             <Link
               href="/dashboard"
-              className="flex items-center gap-2 font-semibold"
+              className="flex items-center gap-2.5 font-semibold tracking-tight"
               onClick={() => setOpen(false)}
             >
-              <Cloud className="size-5 text-primary" />
+              <Cloud className="size-5" />
               {APP_NAME}
             </Link>
           </SheetTitle>
@@ -47,8 +49,7 @@ export function MobileSidebar({ admin }: MobileSidebarProps) {
           <SidebarNav onNavigate={() => setOpen(false)} />
         </div>
 
-        <div className="px-2 pb-2">
-          <Separator className="mb-2" />
+        <div className="border-t border-border px-2 py-2">
           <AdminMenu admin={admin} />
         </div>
       </SheetContent>

@@ -1,18 +1,13 @@
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import type { FindingSeverity } from "@/lib/generated/prisma/client";
 
-const SEVERITY_CLASS: Record<FindingSeverity, string> = {
-  CRITICAL: "bg-destructive/15 text-destructive",
-  HIGH: "bg-orange-500/15 text-orange-600 dark:text-orange-400",
-  MEDIUM: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  LOW: "bg-muted text-muted-foreground",
+const SEVERITY_TONE: Record<FindingSeverity, StatusTone> = {
+  CRITICAL: "danger",
+  HIGH: "danger",
+  MEDIUM: "warning",
+  LOW: "neutral",
 };
 
 export function SeverityBadge({ severity }: { severity: FindingSeverity }) {
-  return (
-    <Badge variant="outline" className={cn("border-transparent", SEVERITY_CLASS[severity])}>
-      {severity}
-    </Badge>
-  );
+  return <StatusBadge tone={SEVERITY_TONE[severity]}>{severity}</StatusBadge>;
 }

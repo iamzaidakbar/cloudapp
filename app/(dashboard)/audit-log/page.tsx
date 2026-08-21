@@ -5,6 +5,7 @@ import { ADMIN_ACTION_TYPES, type AdminActionTypeValue } from "@/lib/audit-log-s
 import type { AdminActionType } from "@/lib/generated/prisma/client";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { DataTableShell } from "@/components/shared/data-table-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { AuditLogFilterBar } from "@/components/audit-log/audit-log-filter-bar";
 import { AuditLogTable } from "@/components/audit-log/audit-log-table";
@@ -41,10 +42,7 @@ export default async function AuditLogPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Audit Log</h1>
-        <p className="text-sm text-muted-foreground">Every admin action, who did it, and when.</p>
-      </div>
+      <PageHeader title="Audit Log" description="Every admin action, who did it, and when." />
 
       <AuditLogFilterBar />
 

@@ -123,7 +123,7 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
         <ConnectionSummary connection={connection} />
 
         {isReconnecting ? (
-          <div className="flex flex-col gap-2 rounded-md border p-3">
+          <div className="flex flex-col gap-2 rounded-none border border-border p-3">
             <Label htmlFor="reconnect-role-arn">New Role ARN</Label>
             <Input
               id="reconnect-role-arn"

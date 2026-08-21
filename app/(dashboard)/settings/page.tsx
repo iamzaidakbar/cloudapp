@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { Cloud, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your CloudShift-G environment.</p>
-      </div>
+      <PageHeader title="Settings" description="Manage your CloudShift-G environment." />
 
       <Link href="/settings/aws">
         <Card className="transition-colors hover:bg-muted/40">

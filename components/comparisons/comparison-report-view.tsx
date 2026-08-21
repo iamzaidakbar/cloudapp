@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuditStatusBadge } from "@/components/audits/audit-status-badge";
 import { DataSourceBadge } from "@/components/aws/data-source-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { PageHeader } from "@/components/shared/page-header";
 import { ComparisonSummaryCards } from "@/components/comparisons/comparison-summary-cards";
 import { ComparisonItemsTable } from "@/components/comparisons/comparison-items-table";
 import { EmptyState } from "@/components/empty-state";
@@ -57,25 +58,29 @@ export function ComparisonReportView({ initialComparisonRun }: { initialComparis
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">Comparison #{comparisonRun.version}</h1>
-          <StatusTransition statusKey={comparisonRun.status}>
-            <AuditStatusBadge status={comparisonRun.status} />
-          </StatusTransition>
-          <DataSourceBadge dataSource={comparisonRun.awsDataSource} />
-          <DataSourceBadge dataSource={comparisonRun.gcpDataSource} />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Started {comparisonRun.startedAt ? <FormattedDateTime value={comparisonRun.startedAt} /> : "—"}
-          {comparisonRun.finishedAt ? (
-            <>
-              {" "}
-              · Completed <FormattedDateTime value={comparisonRun.finishedAt} />
-            </>
-          ) : null}
-        </p>
-      </div>
+      <PageHeader
+        title={`Comparison #${comparisonRun.version}`}
+        description={
+          <>
+            Started {comparisonRun.startedAt ? <FormattedDateTime value={comparisonRun.startedAt} /> : "—"}
+            {comparisonRun.finishedAt ? (
+              <>
+                {" "}
+                · Completed <FormattedDateTime value={comparisonRun.finishedAt} />
+              </>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            <StatusTransition statusKey={comparisonRun.status}>
+              <AuditStatusBadge status={comparisonRun.status} />
+            </StatusTransition>
+            <DataSourceBadge dataSource={comparisonRun.awsDataSource} />
+            <DataSourceBadge dataSource={comparisonRun.gcpDataSource} />
+          </>
+        }
+      />
 
       {comparisonRun.awsDataSource === "DEV_ADAPTER" || comparisonRun.gcpDataSource === "DEV_ADAPTER" ? (
         <Alert>

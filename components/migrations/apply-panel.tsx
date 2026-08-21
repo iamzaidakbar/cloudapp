@@ -76,19 +76,14 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
 
   return (
     <PanelReveal>
-      <Card className="border border-amber-500/30 bg-amber-500/5">
+      <Card className="border-border bg-muted">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <TriangleAlert className="size-4 text-amber-600 dark:text-amber-400" />
+              <TriangleAlert className="size-4 text-foreground" />
               Execute Migration
             </CardTitle>
-            <Button
-              type="button"
-              onClick={handleExecute}
-              disabled={isStarting || isActive}
-              className="bg-amber-600 text-white hover:bg-amber-600/90 dark:bg-amber-500 dark:hover:bg-amber-500/90"
-            >
+            <Button type="button" onClick={handleExecute} disabled={isStarting || isActive}>
               {isStarting || isActive ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
@@ -139,14 +134,14 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
               ) : null}
 
               {run.status === "SUCCEEDED" ? (
-                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                <p className="text-sm text-foreground">
                   {run.resourcesCreated ?? 0} resource{run.resourcesCreated === 1 ? "" : "s"} provisioned for real — see the
                   resource table above for each one&apos;s live GCP identifier.
                 </p>
               ) : null}
 
               {run.applyOutput ? (
-                <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.applyOutput}</pre>
+                <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.applyOutput}</pre>
               ) : null}
             </div>
           ) : null}

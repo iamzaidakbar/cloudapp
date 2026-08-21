@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MigrationRunsTable } from "@/components/migrations/migration-runs-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -46,24 +47,22 @@ export default async function MigrationsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Migrations</h1>
-          <p className="text-sm text-muted-foreground">
-            Plan and approve AWS to GCP migrations for {tenant?.name ?? "your organization"}.
-          </p>
-        </div>
-        {admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
-          canCreate ? (
-            newMigrationLink
-          ) : (
-            <Tooltip>
-              <TooltipTrigger render={newMigrationLink} />
-              <TooltipContent>Run a successful AWS to GCP comparison first</TooltipContent>
-            </Tooltip>
-          )
-        ) : null}
-      </div>
+      <PageHeader
+        title="Migrations"
+        description={`Plan and approve AWS to GCP migrations for ${tenant?.name ?? "your organization"}.`}
+        actions={
+          admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
+            canCreate ? (
+              newMigrationLink
+            ) : (
+              <Tooltip>
+                <TooltipTrigger render={newMigrationLink} />
+                <TooltipContent>Run a successful AWS to GCP comparison first</TooltipContent>
+              </Tooltip>
+            )
+          ) : null
+        }
+      />
 
       <DataTableShell
         isEmpty={total === 0}

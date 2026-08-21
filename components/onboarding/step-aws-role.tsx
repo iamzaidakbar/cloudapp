@@ -104,7 +104,7 @@ export function StepAwsRole({ connection, onSaved }: StepAwsRoleProps) {
 
         <div className="flex flex-col gap-1.5">
           <Label>External ID</Label>
-          <div className="flex items-center gap-1 rounded-md border bg-muted/40 px-2.5 py-1.5">
+          <div className="flex items-center gap-1 border border-border bg-muted/40 px-2.5 py-1.5">
             <code className="flex-1 truncate font-mono text-xs">{connection.externalId}</code>
             <CopyButton value={connection.externalId} />
           </div>
@@ -112,7 +112,7 @@ export function StepAwsRole({ connection, onSaved }: StepAwsRoleProps) {
 
         <div className="flex flex-col gap-1.5">
           <Label>Trust policy</Label>
-          <pre className="overflow-x-auto rounded-md border bg-muted/40 p-2.5 font-mono text-xs">
+          <pre className="overflow-x-auto border border-border bg-muted/40 p-2.5 font-mono text-xs">
             {JSON.stringify(trustPolicy, null, 2)}
           </pre>
         </div>

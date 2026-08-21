@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StaggerItem } from "@/components/motion/stagger-list";
+import { Surface } from "@/components/shared/surface";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
@@ -39,7 +40,7 @@ function CostCell({ value, available, index }: { value: string | number | null; 
 
 export function ComparisonItemsTable({ items }: { items: ComparisonItemRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border">
+    <Surface className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -88,6 +89,6 @@ export function ComparisonItemsTable({ items }: { items: ComparisonItemRow[] }) 
           ))}
         </TableBody>
       </Table>
-    </div>
+    </Surface>
   );
 }

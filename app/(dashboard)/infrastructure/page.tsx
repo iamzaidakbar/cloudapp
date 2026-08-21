@@ -5,6 +5,7 @@ import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { InfrastructureFilterBar } from "@/components/infrastructure/infrastructure-filter-bar";
 import { InfrastructureTable } from "@/components/infrastructure/infrastructure-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
@@ -45,12 +46,12 @@ export default async function InfrastructurePage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Infrastructure</h1>
-        <p className="text-sm text-muted-foreground">
-          {auditRun ? `From audit run #${auditRun.version}` : "AWS resources discovered by your audits."}
-        </p>
-      </div>
+      <PageHeader
+        title="Infrastructure"
+        description={
+          auditRun ? `From audit run #${auditRun.version}` : "AWS resources discovered by your audits."
+        }
+      />
 
       {auditRun ? <InfrastructureFilterBar filterOptions={filterOptions} /> : null}
 
@@ -58,7 +59,7 @@ export default async function InfrastructurePage({
         isEmpty={total === 0}
         emptyState={
           hasActiveFilters ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center">
+            <div className="flex flex-col items-center gap-2 rounded-none border border-dashed px-6 py-10 text-center">
               <p className="text-sm font-medium text-foreground">No resources match the current filters.</p>
               <Link href="/infrastructure" className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Clear filters

@@ -1,5 +1,4 @@
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { StatusBadge, type StatusTone } from "@/components/shared/status-badge";
 import type { MigrationPlanStatus } from "@/lib/generated/prisma/client";
 
 const STATUS_LABEL: Record<MigrationPlanStatus, string> = {
@@ -9,17 +8,19 @@ const STATUS_LABEL: Record<MigrationPlanStatus, string> = {
   ROLLED_BACK: "Rolled Back",
 };
 
-const STATUS_CLASS: Record<MigrationPlanStatus, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
-  APPROVED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  CANCELLED: "bg-destructive/15 text-destructive",
-  ROLLED_BACK: "bg-muted text-muted-foreground",
+const STATUS_TONE: Record<MigrationPlanStatus, StatusTone> = {
+  DRAFT: "neutral",
+  APPROVED: "success",
+  CANCELLED: "danger",
+  ROLLED_BACK: "neutral",
 };
 
-export function MigrationStatusBadge({ status }: { status: MigrationPlanStatus }) {
+export function MigrationStatusBadge({
+  status,
+}: {
+  status: MigrationPlanStatus;
+}) {
   return (
-    <Badge variant="outline" className={cn("border-transparent", STATUS_CLASS[status])}>
-      {STATUS_LABEL[status]}
-    </Badge>
+    <StatusBadge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</StatusBadge>
   );
 }

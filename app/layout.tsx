@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Ubuntu, Ubuntu_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import { MotionProvider } from "@/components/motion/motion-provider";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const ubuntu = Ubuntu({
@@ -23,17 +26,25 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`dark ${ubuntu.variable} ${ubuntuMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${ubuntu.variable} ${ubuntuMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <TooltipProvider>{children}</TooltipProvider>
+        <ThemeProvider>
+          <MotionProvider>
+            <TooltipProvider>
+              {children}
+              <Toaster position="bottom-right" closeButton richColors={false} />
+            </TooltipProvider>
+          </MotionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

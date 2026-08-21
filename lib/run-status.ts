@@ -35,14 +35,14 @@ export type RunStatus = (typeof RUN_STATUSES)[number];
  * JobStatus/JobRowStatus (which adds CANCELLED) still get a valid lookup.
  */
 export const RUN_STATUS_CLASS: Record<string, string> = {
-  QUEUED: "bg-muted text-muted-foreground",
-  RUNNING: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  SUCCEEDED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  FAILED: "bg-destructive/15 text-destructive",
+  QUEUED: "border-border bg-muted text-muted-foreground",
+  RUNNING: "border-foreground/30 bg-foreground/10 text-foreground",
+  SUCCEEDED: "border-foreground/40 bg-foreground text-background",
+  FAILED: "border-destructive/40 bg-destructive/10 text-destructive",
   // Not part of RunStatus itself — included for JobStatus/JobRowStatus
   // callers (job-status-badge.tsx, audit-status-badge.tsx), which style it
   // the same as QUEUED.
-  CANCELLED: "bg-muted text-muted-foreground",
+  CANCELLED: "border-border bg-muted text-muted-foreground",
 };
 
 /**

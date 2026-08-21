@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterBar } from "@/components/shared/filter-bar";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
 const SERVICE_LABEL: Record<AwsServiceType, string> = {
@@ -53,7 +54,7 @@ export function InfrastructureFilterBar({ filterOptions }: { filterOptions: Filt
   }, [query]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <FilterBar>
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -105,6 +106,6 @@ export function InfrastructureFilterBar({ filterOptions }: { filterOptions: Filt
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </FilterBar>
   );
 }

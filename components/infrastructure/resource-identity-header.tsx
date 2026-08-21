@@ -4,6 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { CopyButton } from "@/components/copy-button";
 import { ResourceStatusBadge } from "@/components/infrastructure/resource-status-badge";
 import { DataSourceBadge } from "@/components/aws/data-source-badge";
+import { PageHeader } from "@/components/shared/page-header";
 import { FadeIn } from "@/components/motion/fade-in";
 import type { AwsServiceType, VerificationSource } from "@/lib/generated/prisma/client";
 
@@ -46,19 +47,23 @@ export function ResourceIdentityHeader({
         Infrastructure
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{SERVICE_LABEL[service]}</p>
-          <h1 className="text-lg font-semibold text-foreground">{name ?? resourceId}</h1>
-          <div className="mt-1 flex items-center gap-1">
-            <code className="truncate font-mono text-xs text-muted-foreground">{resourceId}</code>
-            <CopyButton value={resourceId} />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <DataSourceBadge dataSource={dataSource} />
-          <ResourceStatusBadge status={status} />
-        </div>
+      <div className="flex flex-col gap-1">
+        <p className="text-xs font-medium text-muted-foreground">{SERVICE_LABEL[service]}</p>
+        <PageHeader
+          title={name ?? resourceId}
+          description={
+            <span className="flex items-center gap-1">
+              <code className="truncate font-mono text-xs text-muted-foreground">{resourceId}</code>
+              <CopyButton value={resourceId} />
+            </span>
+          }
+          actions={
+            <>
+              <DataSourceBadge dataSource={dataSource} />
+              <ResourceStatusBadge status={status} />
+            </>
+          }
+        />
       </div>
 
       <div className="flex gap-4 text-sm text-muted-foreground">

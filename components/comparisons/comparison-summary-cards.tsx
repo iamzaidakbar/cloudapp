@@ -72,7 +72,7 @@ export function ComparisonSummaryCards({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className={`text-2xl font-semibold ${savingsPercent && savingsPercent > 0 ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+          <p className="text-2xl font-semibold text-foreground">
             {savingsPercent !== null ? `${savingsPercent}%` : "N/A"}
           </p>
         </CardContent>

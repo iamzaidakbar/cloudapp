@@ -21,9 +21,9 @@ const SERVICE_LABEL: Partial<Record<AwsServiceType, string>> = {
 };
 
 const STATUS_CLASS: Record<VerificationStatus, string> = {
-  HEALTHY: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  UNHEALTHY: "bg-destructive/15 text-destructive",
-  UNAVAILABLE: "bg-muted text-muted-foreground",
+  HEALTHY: "border-foreground/40 bg-foreground text-background",
+  UNHEALTHY: "border-destructive/40 bg-destructive/10 text-destructive",
+  UNAVAILABLE: "border-border bg-muted text-muted-foreground",
 };
 
 const STATUS_LABEL: Record<VerificationStatus, string> = {
@@ -125,7 +125,7 @@ export function VerificationPanel({
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-lg border">
+              <div className="overflow-x-auto rounded-none border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>

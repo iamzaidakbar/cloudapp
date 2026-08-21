@@ -124,7 +124,7 @@ export function TerraformPanel({
           ) : null}
 
           {run ? (
-            <div className="flex flex-col gap-3 rounded-lg border p-3">
+            <div className="flex flex-col gap-3 rounded-none border border-border p-3">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>Run #{run.version}</span>
                 <StatusTransition statusKey={run.status}>
@@ -147,14 +147,14 @@ export function TerraformPanel({
 
               <div className="flex flex-col gap-1">
                 <p className="text-xs font-medium text-muted-foreground">Generated configuration (main.tf)</p>
-                <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.terraformConfig}</pre>
+                <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.terraformConfig}</pre>
               </div>
 
               {run.validateSucceeded !== null ? (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-sm">
                     {run.validateSucceeded ? (
-                      <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+                      <CheckCircle2 className="size-4 text-foreground" />
                     ) : (
                       <XCircle className="size-4 text-destructive" />
                     )}
@@ -178,12 +178,12 @@ export function TerraformPanel({
                     terraform plan — {run.resourcesToCreate ?? 0} resource{run.resourcesToCreate === 1 ? "" : "s"} would be created
                     (read-only dry run against your real GCP project — nothing was created)
                   </p>
-                  <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
+                  <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
                 </div>
               ) : run.planOutput ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-medium text-destructive">terraform plan failed</p>
-                  <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
+                  <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
                 </div>
               ) : null}
             </div>

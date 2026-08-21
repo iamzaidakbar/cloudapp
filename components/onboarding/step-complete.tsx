@@ -19,7 +19,7 @@ export function StepComplete({ tenant, connection }: StepCompleteProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CheckCircle2 className="size-5 text-emerald-500" />
+          <CheckCircle2 className="size-5" />
           {tenant.name} is connected
         </CardTitle>
         <CardDescription>

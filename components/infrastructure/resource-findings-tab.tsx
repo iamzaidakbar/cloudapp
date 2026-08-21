@@ -23,7 +23,7 @@ export function ResourceFindingsTab({ findings }: { findings: FindingRow[] }) {
   return (
     <div className="flex flex-col gap-3 pt-4">
       <FindingsFilterBar severity={severity} onSeverityChange={setSeverity} />
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-none border border-border">
         <FindingsTable findings={filtered} showResourceColumn={false} />
       </div>
     </div>

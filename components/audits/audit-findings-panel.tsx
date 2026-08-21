@@ -73,7 +73,7 @@ export function AuditFindingsPanel({ auditRunId }: { auditRunId: string }) {
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-none border border-border">
             <FindingsTable findings={data.items} />
           </div>
           {data.totalPages > 1 ? (

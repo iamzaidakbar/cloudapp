@@ -17,7 +17,7 @@ const SERVICE_LABEL: Record<AwsServiceType, string> = {
 
 const STATUS_ICON: Record<ServiceCollectionStatus, React.ReactNode> = {
   PENDING: <Clock className="size-3.5 text-muted-foreground" />,
-  SUCCEEDED: <Check className="size-3.5 text-emerald-500" />,
+  SUCCEEDED: <Check className="size-3.5 text-foreground" />,
   FAILED: <X className="size-3.5 text-destructive" />,
   SKIPPED: <MinusCircle className="size-3.5 text-muted-foreground" />,
 };

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FilterBar } from "@/components/shared/filter-bar";
 import { ADMIN_ACTION_TYPES, ADMIN_ACTION_LABEL } from "@/lib/audit-log-shared";
 
 export function AuditLogFilterBar() {
@@ -20,7 +21,7 @@ export function AuditLogFilterBar() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <FilterBar>
       <Select value={searchParams.get("action") ?? "all"} onValueChange={(v) => updateParam("action", v)}>
         <SelectTrigger size="sm" className="w-56">
           <SelectValue placeholder="Action" />
@@ -34,6 +35,6 @@ export function AuditLogFilterBar() {
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </FilterBar>
   );
 }

@@ -189,7 +189,7 @@ export function RollbackPanel({
               ) : null}
 
               {run.destroyOutput ? (
-                <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.destroyOutput}</pre>
+                <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.destroyOutput}</pre>
               ) : null}
             </div>
           ) : null}

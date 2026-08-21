@@ -72,7 +72,7 @@ export function ResourceSelector({ items }: { items: SelectableComparisonItem[] 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-none border border-border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -113,7 +113,7 @@ export function ResourceSelector({ items }: { items: SelectableComparisonItem[] 
         </Table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-none border border-border bg-muted/30 px-4 py-3">
         <div className="text-sm text-muted-foreground">
           <span className="font-medium text-foreground">{selected.size}</span> of {items.length} resources selected
           {selected.size > 0 ? (

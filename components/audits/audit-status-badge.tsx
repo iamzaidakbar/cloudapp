@@ -1,15 +1,15 @@
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { RUN_STATUS_CLASS, RUN_STATUS_LABEL } from "@/lib/run-status";
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { JobStatus } from "@/lib/generated/prisma/client";
 
 export function AuditStatusBadge({ status }: { status: JobStatus }) {
   return (
-    <Badge variant="outline" className={cn("border-transparent", RUN_STATUS_CLASS[status])}>
-      {status === "RUNNING" ? (
-        <span className="size-1.5 animate-pulse rounded-full bg-blue-500" />
-      ) : null}
+    <StatusBadge
+      pulse={status === "RUNNING"}
+      className={cn(RUN_STATUS_CLASS[status])}
+    >
       {RUN_STATUS_LABEL[status]}
-    </Badge>
+    </StatusBadge>
   );
 }

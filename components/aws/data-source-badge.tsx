@@ -1,30 +1,39 @@
 import { FlaskConical } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type DataSourceBadgeProps = {
   dataSource: "AWS" | "GCP" | "DEV_ADAPTER";
   compact?: boolean;
 };
 
-export function DataSourceBadge({ dataSource, compact = false }: DataSourceBadgeProps) {
+export function DataSourceBadge({
+  dataSource,
+  compact = false,
+}: DataSourceBadgeProps) {
   if (dataSource !== "DEV_ADAPTER") return null;
 
   if (compact) {
     return (
       <Tooltip>
         <TooltipTrigger>
-          <FlaskConical className="size-3.5 text-amber-500" />
+          <FlaskConical className="size-3.5 text-muted-foreground" />
         </TooltipTrigger>
-        <TooltipContent>Discovered via simulated dev adapter data</TooltipContent>
+        <TooltipContent>
+          Discovered via simulated dev adapter data
+        </TooltipContent>
       </Tooltip>
     );
   }
 
   return (
-    <Badge variant="outline" className="border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400">
+    <StatusBadge tone="warning">
       <FlaskConical className="size-3" />
       Simulated (Dev Adapter)
-    </Badge>
+    </StatusBadge>
   );
 }

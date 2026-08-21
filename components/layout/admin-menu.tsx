@@ -39,19 +39,25 @@ export function AdminMenu({ admin }: AdminMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-accent/50">
+      <DropdownMenuTrigger className="flex w-full items-center gap-2.5 px-2 py-2 text-left text-sm outline-none transition-colors hover:bg-accent">
         <Avatar size="sm">
-          <AvatarFallback>{initialsFor(admin.name, admin.email)}</AvatarFallback>
+          <AvatarFallback>
+            {initialsFor(admin.name, admin.email)}
+          </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{admin.name || "Admin"}</p>
+          <p className="truncate text-sm font-medium">
+            {admin.name || "Admin"}
+          </p>
           <p className="truncate text-xs text-muted-foreground">{admin.email}</p>
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top">
-        <div className="px-1.5 py-1">
-          <p className="text-xs font-medium text-muted-foreground">Signed in as</p>
-          <p className="truncate text-xs text-muted-foreground">{admin.email}</p>
+      <DropdownMenuContent align="start" side="top" className="min-w-56">
+        <div className="px-2 py-1.5">
+          <p className="text-xs font-medium text-muted-foreground">
+            Signed in as
+          </p>
+          <p className="truncate text-xs text-foreground">{admin.email}</p>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem

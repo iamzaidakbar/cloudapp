@@ -14,6 +14,7 @@ import { ApplyPanel } from "@/components/migrations/apply-panel";
 import { VerificationPanel } from "@/components/migrations/verification-panel";
 import { RollbackPanel } from "@/components/migrations/rollback-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default async function MigrationPlanPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,27 +37,27 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">Migration #{plan.sequenceNumber}</h1>
-          <MigrationStatusBadge status={plan.status} />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Created <FormattedDateTime value={plan.createdAt} />
-          {plan.approvedAt ? (
-            <>
-              {" "}
-              · Approved <FormattedDateTime value={plan.approvedAt} />
-            </>
-          ) : null}
-          {plan.cancelledAt ? (
-            <>
-              {" "}
-              · Cancelled <FormattedDateTime value={plan.cancelledAt} />
-            </>
-          ) : null}
-        </p>
-      </div>
+      <PageHeader
+        title={`Migration #${plan.sequenceNumber}`}
+        description={
+          <>
+            Created <FormattedDateTime value={plan.createdAt} />
+            {plan.approvedAt ? (
+              <>
+                {" "}
+                · Approved <FormattedDateTime value={plan.approvedAt} />
+              </>
+            ) : null}
+            {plan.cancelledAt ? (
+              <>
+                {" "}
+                · Cancelled <FormattedDateTime value={plan.cancelledAt} />
+              </>
+            ) : null}
+          </>
+        }
+        actions={<MigrationStatusBadge status={plan.status} />}
+      />
 
       <MigrationSummaryCards
         resourceCount={plan.resourceCount}

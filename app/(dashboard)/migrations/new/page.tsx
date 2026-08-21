@@ -4,6 +4,7 @@ import { requireTenantScope } from "@/lib/auth/guard";
 import { getSelectableComparisonItems } from "@/lib/migrations";
 import { ResourceSelector } from "@/components/migrations/resource-selector";
 import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function NewMigrationPage() {
   const admin = await requireTenantScope();
@@ -16,12 +17,10 @@ export default async function NewMigrationPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">New Migration</h1>
-        <p className="text-sm text-muted-foreground">
-          Select resources from your latest comparison to include in this migration plan.
-        </p>
-      </div>
+      <PageHeader
+        title="New Migration"
+        description="Select resources from your latest comparison to include in this migration plan."
+      />
 
       {selectable && selectable.items.length > 0 ? (
         <ResourceSelector items={selectable.items} />

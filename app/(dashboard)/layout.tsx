@@ -17,20 +17,16 @@ export default async function DashboardLayout({
   }
 
   return (
-    <>
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_20%_-10%,var(--glass-bg-subtle),transparent)]"
-        aria-hidden="true"
-      />
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar admin={admin} />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Header admin={admin} />
-          <main className="flex-1 overflow-y-auto bg-muted/30 p-4 md:p-6">
+    <div className="flex h-screen overflow-hidden bg-background">
+      <Sidebar admin={admin} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header admin={admin} />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="mx-auto w-full max-w-7xl animate-in fade-in duration-200">
             {children}
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
-    </>
+    </div>
   );
 }

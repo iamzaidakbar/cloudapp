@@ -8,7 +8,7 @@ const STEPS = ["Organization", "AWS Role", "Verify Connection", "Complete"];
 
 export function StepIndicator({ step }: { step: number }) {
   return (
-    <ol className="mb-6 grid grid-cols-4 gap-2">
+    <ol className="mb-8 grid grid-cols-4 gap-2">
       {STEPS.map((label, index) => {
         const stepNumber = index + 1;
         const isComplete = stepNumber < step;
@@ -19,20 +19,20 @@ export function StepIndicator({ step }: { step: number }) {
             {isActive ? (
               <motion.div
                 layoutId="onboarding-step-active"
-                className="h-1 rounded-full bg-primary"
+                className="h-0.5 bg-foreground"
                 transition={{ duration: durations.base, ease: easing }}
               />
             ) : (
               <div
                 className={cn(
-                  "h-1 rounded-full",
-                  isComplete ? "bg-primary" : "bg-border",
+                  "h-0.5",
+                  isComplete ? "bg-foreground" : "bg-border",
                 )}
               />
             )}
             <span
               className={cn(
-                "text-xs font-medium",
+                "text-[11px] font-medium uppercase tracking-wide",
                 isActive ? "text-foreground" : "text-muted-foreground",
               )}
             >

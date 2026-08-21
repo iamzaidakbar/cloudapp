@@ -6,6 +6,7 @@ import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { RunAuditButton } from "@/components/audits/run-audit-button";
 import { AuditRunsTable } from "@/components/audits/audit-runs-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
 
 export default async function AuditsPage({
@@ -31,17 +32,15 @@ export default async function AuditsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Audits</h1>
-          <p className="text-sm text-muted-foreground">
-            Run and review AWS infrastructure audits for {tenant?.name ?? "your organization"}.
-          </p>
-        </div>
-        {admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
-          <RunAuditButton hasActiveRun={Boolean(activeRun)} activeRunStartedAt={activeRun?.startedAt} />
-        ) : null}
-      </div>
+      <PageHeader
+        title="Audits"
+        description={`Run and review AWS infrastructure audits for ${tenant?.name ?? "your organization"}.`}
+        actions={
+          admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
+            <RunAuditButton hasActiveRun={Boolean(activeRun)} activeRunStartedAt={activeRun?.startedAt} />
+          ) : null
+        }
+      />
 
       <DataTableShell
         isEmpty={total === 0}

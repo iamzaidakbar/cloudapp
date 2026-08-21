@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck, Clock } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Clock, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
-import { StaggerItem } from "@/components/motion/stagger-list";
+import { FadeIn } from "@/components/motion/fade-in";
 
 type SummaryData = {
   adminCount: number;
@@ -40,7 +39,8 @@ export function SummaryCards() {
         if (!cancelled) {
           setState({
             status: "error",
-            message: error instanceof Error ? error.message : "Something went wrong",
+            message:
+              error instanceof Error ? error.message : "Something went wrong",
           });
         }
       }
@@ -55,45 +55,45 @@ export function SummaryCards() {
   if (state.status === "error") {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Couldn&apos;t load dashboard data</AlertTitle>
+        <AlertTitle>Couldn&apos;t load session data</AlertTitle>
         <AlertDescription>{state.message}</AlertDescription>
       </Alert>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <StaggerItem index={0}>
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-              <ShieldCheck className="size-4" />
-              Admin Accounts
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+    <FadeIn delayMs={40}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex items-center gap-3 border border-border bg-card px-4 py-3">
+          <div className="flex size-9 items-center justify-center border border-border bg-muted">
+            <Users className="size-4 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Team admins
+            </p>
             {state.status === "loading" ? (
-              <Skeleton className="h-7 w-12" />
+              <Skeleton className="mt-1 h-5 w-10" />
             ) : (
-              <p className="text-2xl font-semibold">{state.data.adminCount}</p>
+              <p className="text-lg font-semibold tabular-nums">
+                {state.data.adminCount}
+              </p>
             )}
-          </CardContent>
-        </Card>
-      </StaggerItem>
+          </div>
+        </div>
 
-      <StaggerItem index={1}>
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="size-4" />
-              Last Login
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="flex items-center gap-3 border border-border bg-card px-4 py-3">
+          <div className="flex size-9 items-center justify-center border border-border bg-muted">
+            <Clock className="size-4 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Last login
+            </p>
             {state.status === "loading" ? (
-              <Skeleton className="h-7 w-32" />
+              <Skeleton className="mt-1 h-5 w-36" />
             ) : (
-              <p className="text-sm font-medium">
+              <p className="truncate text-sm font-medium">
                 {state.data.lastLoginAt ? (
                   <FormattedDateTime value={state.data.lastLoginAt} />
                 ) : (
@@ -101,9 +101,9 @@ export function SummaryCards() {
                 )}
               </p>
             )}
-          </CardContent>
-        </Card>
-      </StaggerItem>
-    </div>
+          </div>
+        </div>
+      </div>
+    </FadeIn>
   );
 }

@@ -1,53 +1,73 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowRight, Rocket } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { MigrationStatusBadge } from "@/components/migrations/migration-status-badge";
 import { formatCurrency } from "@/lib/format";
 import type { SerializedMigrationPlan } from "@/lib/migrations";
-import { FadeIn } from "@/components/motion/fade-in";
 
-export function LatestMigrationSummary({ migrationPlan }: { migrationPlan: SerializedMigrationPlan }) {
+export function LatestMigrationSummary({
+  migrationPlan,
+}: {
+  migrationPlan: SerializedMigrationPlan;
+}) {
   return (
-    <FadeIn delayMs={120}>
-      <Card size="sm">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-muted-foreground">
-              Latest Migration — #{migrationPlan.sequenceNumber}
-              <MigrationStatusBadge status={migrationPlan.status} />
-            </CardTitle>
-            <Link href={`/migrations/${migrationPlan.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              View plan
-              <ArrowRight className="size-3.5" />
-            </Link>
+    <article className="flex h-full flex-col border border-border bg-card">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Rocket className="size-4 shrink-0" />
+            <span className="text-[11px] font-medium uppercase tracking-wider">
+              Latest migration
+            </span>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-muted-foreground">Resources</p>
-              <p className="text-lg font-semibold">{migrationPlan.resourceCount}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Est. Migration Cost</p>
-              <p className="text-lg font-semibold">
-                {migrationPlan.costDataAvailable && migrationPlan.estimatedMigrationCost !== null
-                  ? formatCurrency(migrationPlan.estimatedMigrationCost)
-                  : "N/A"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Est. GCP Monthly Cost</p>
-              <p className="text-lg font-semibold">
-                {migrationPlan.costDataAvailable && migrationPlan.estimatedGcpMonthlyCost !== null
-                  ? formatCurrency(migrationPlan.estimatedGcpMonthlyCost)
-                  : "N/A"}
-              </p>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold tracking-tight">
+              Plan #{migrationPlan.sequenceNumber}
+            </h3>
+            <MigrationStatusBadge status={migrationPlan.status} />
           </div>
-        </CardContent>
-      </Card>
-    </FadeIn>
+        </div>
+        <Link
+          href={`/migrations/${migrationPlan.id}`}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+        >
+          Open
+          <ArrowRight className="size-3.5" />
+        </Link>
+      </div>
+
+      <div className="grid flex-1 grid-cols-3 gap-3 p-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Resources
+          </p>
+          <p className="mt-1 text-lg font-semibold tabular-nums">
+            {migrationPlan.resourceCount}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Migration cost
+          </p>
+          <p className="mt-1 text-lg font-semibold tabular-nums">
+            {migrationPlan.costDataAvailable &&
+            migrationPlan.estimatedMigrationCost !== null
+              ? formatCurrency(migrationPlan.estimatedMigrationCost)
+              : "N/A"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            GCP monthly
+          </p>
+          <p className="mt-1 text-lg font-semibold tabular-nums">
+            {migrationPlan.costDataAvailable &&
+            migrationPlan.estimatedGcpMonthlyCost !== null
+              ? formatCurrency(migrationPlan.estimatedGcpMonthlyCost)
+              : "N/A"}
+          </p>
+        </div>
+      </div>
+    </article>
   );
 }

@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StaggerItem } from "@/components/motion/stagger-list";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { Surface } from "@/components/shared/surface";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
@@ -30,7 +31,7 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
   const anyProvisioned = resources.some((r) => r.provisionedAt);
 
   return (
-    <div className="overflow-x-auto rounded-lg bg-glass-strong supports-backdrop-filter:bg-glass supports-backdrop-filter:backdrop-blur-md ring-1 ring-glass-border shadow-glass">
+    <Surface className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -90,6 +91,6 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
           ))}
         </TableBody>
       </Table>
-    </div>
+    </Surface>
   );
 }
