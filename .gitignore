@@ -47,4 +47,16 @@ next-env.d.ts
 # binaries, safe to redownload, never source-controlled.
 /.terraform-plugin-cache/
 
+# Platform Terraform working dir (providers, modules, local state). Keep
+# infra/.terraform.lock.hcl tracked; never commit .terraform/ or *.tfstate.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 /credentials.json

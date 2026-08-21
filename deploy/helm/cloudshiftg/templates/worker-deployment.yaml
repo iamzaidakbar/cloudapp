@@ -56,3 +56,6 @@ spec:
             periodSeconds: 60
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
+        {{- if .Values.cloudsql.enabled }}
+        {{- include "cloudshiftg.cloudSqlProxyContainer" . | nindent 8 }}
+        {{- end }}

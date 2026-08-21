@@ -1,16 +1,27 @@
 environment: development
+
+cloudsql:
+  enabled: true
+
+migrate:
+  # Set true on first install / schema changes. Migrations for Phase A were
+  # applied during the initial prove-out; leave false to avoid hook stalls.
+  enabled: false
+
 web:
   replicas: 1
   hpa:
     enabled: true
     minReplicas: 1
     maxReplicas: 4
+
 worker:
   replicas: 1
   hpa:
     enabled: true
     minReplicas: 1
     maxReplicas: 4
+
 ingress:
-  enabled: true
+  enabled: false
   host: cloudshiftg-dev.example.com

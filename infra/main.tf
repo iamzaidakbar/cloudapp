@@ -8,6 +8,8 @@
 #   terraform init
 #   terraform plan -var-file=environments/dev.tfvars
 #   terraform apply -var-file=environments/dev.tfvars
+#
+# Full Phase A runbook: ../docs/PHASE_A_CHECKLIST.md
 
 terraform {
   required_version = ">= 1.5.0"
@@ -19,6 +21,10 @@ terraform {
     google-beta = {
       source  = "hashicorp/google-beta"
       version = "~> 5.40"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
     }
   }
 }
@@ -68,6 +74,14 @@ locals {
     environment = var.environment
     managed-by  = "terraform"
   }
+
+  # Pods talk to Cloud SQL via the Auth Proxy on localhost (Phase A).
+  database_url_proxy = "postgresql://cloudshiftg:${urlencode(random_password.migrate.result)}@127.0.0.1:5432/cloudshiftg?schema=public"
+  app_database_url_proxy = "postgresql://cloudshiftg_app:${urlencode(random_password.app.result)}@127.0.0.1:5432/cloudshiftg?schema=public"
+}
+
+data "google_project" "project" {
+  project_id = var.project_id
 }
 
 # --- Networking ---
@@ -115,6 +129,15 @@ resource "google_artifact_registry_repository" "apps" {
   description   = "CloudShift-G container images"
   format        = "DOCKER"
   labels        = local.labels
+}
+
+# Autopilot nodes pull images as the default Compute Engine SA
+resource "google_artifact_registry_repository_iam_member" "gke_nodes_reader" {
+  project    = var.project_id
+  location   = var.region
+  repository = google_artifact_registry_repository.apps.name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
 }
 
 # --- GKE Autopilot ---
@@ -187,6 +210,35 @@ resource "google_sql_database" "app" {
   instance = google_sql_database_instance.postgres.name
 }
 
+resource "random_password" "migrate" {
+  length  = 32
+  special = false
+}
+
+resource "random_password" "app" {
+  length  = 32
+  special = false
+}
+
+resource "random_password" "session" {
+  length  = 48
+  special = false
+}
+
+# Migrate / Prisma CLI role (owns schema objects)
+resource "google_sql_user" "migrate" {
+  name     = "cloudshiftg"
+  instance = google_sql_database_instance.postgres.name
+  password = random_password.migrate.result
+}
+
+# Runtime app role (RLS applies — not a Cloud SQL superuser)
+resource "google_sql_user" "app" {
+  name     = "cloudshiftg_app"
+  instance = google_sql_database_instance.postgres.name
+  password = random_password.app.result
+}
+
 # --- Pub/Sub ---
 resource "google_pubsub_topic" "audit_jobs" {
   name   = "cloudshiftg-audit-jobs"
@@ -199,8 +251,8 @@ resource "google_pubsub_topic" "comparison_jobs" {
 }
 
 resource "google_pubsub_subscription" "audit_worker" {
-  name  = "cloudshiftg-audit-jobs-worker"
-  topic = google_pubsub_topic.audit_jobs.name
+  name                 = "cloudshiftg-audit-jobs-worker"
+  topic                = google_pubsub_topic.audit_jobs.name
   ack_deadline_seconds = 120
   retry_policy {
     minimum_backoff = "10s"
@@ -209,8 +261,8 @@ resource "google_pubsub_subscription" "audit_worker" {
 }
 
 resource "google_pubsub_subscription" "comparison_worker" {
-  name  = "cloudshiftg-comparison-jobs-worker"
-  topic = google_pubsub_topic.comparison_jobs.name
+  name                 = "cloudshiftg-comparison-jobs-worker"
+  topic                = google_pubsub_topic.comparison_jobs.name
   ack_deadline_seconds = 120
   retry_policy {
     minimum_backoff = "10s"
@@ -252,6 +304,24 @@ resource "google_project_iam_member" "tf_job_editor" {
   member  = "serviceAccount:${google_service_account.terraform_job.email}"
 }
 
+resource "google_project_iam_member" "web_cloudsql" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.web.email}"
+}
+
+resource "google_project_iam_member" "worker_cloudsql" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_project_iam_member" "tf_job_cloudsql" {
+  project = var.project_id
+  role    = "roles/cloudsql.client"
+  member  = "serviceAccount:${google_service_account.terraform_job.email}"
+}
+
 # Workload Identity: bind KSA → GSA (namespaces: development + production)
 resource "google_service_account_iam_member" "web_wi_dev" {
   service_account_id = google_service_account.web.name
@@ -289,7 +359,7 @@ resource "google_service_account_iam_member" "tf_wi_prod" {
   member             = "serviceAccount:${var.project_id}.svc.id.goog[production/cloudshiftg-terraform-job]"
 }
 
-# --- Secret Manager placeholders (values set outside Terraform) ---
+# --- Secret Manager (versions written by Terraform for Phase A bootstrap) ---
 resource "google_secret_manager_secret" "session" {
   secret_id = "cloudshiftg-session-secret"
   replication {
@@ -314,8 +384,63 @@ resource "google_secret_manager_secret" "db_url" {
   labels = local.labels
 }
 
+resource "google_secret_manager_secret_version" "session" {
+  secret      = google_secret_manager_secret.session.id
+  secret_data = random_password.session.result
+}
+
+resource "google_secret_manager_secret_version" "db_url" {
+  secret      = google_secret_manager_secret.db_url.id
+  secret_data = local.database_url_proxy
+}
+
+resource "google_secret_manager_secret_version" "app_db_url" {
+  secret      = google_secret_manager_secret.app_db_url.id
+  secret_data = local.app_database_url_proxy
+}
+
+resource "google_secret_manager_secret_iam_member" "web_session" {
+  secret_id = google_secret_manager_secret.session.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.web.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "web_db" {
+  secret_id = google_secret_manager_secret.db_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.web.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "web_app_db" {
+  secret_id = google_secret_manager_secret.app_db_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.web.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "worker_session" {
+  secret_id = google_secret_manager_secret.session.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "worker_db" {
+  secret_id = google_secret_manager_secret.db_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.worker.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "worker_app_db" {
+  secret_id = google_secret_manager_secret.app_db_url.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.worker.email}"
+}
+
 output "cluster_name" {
   value = google_container_cluster.autopilot.name
+}
+
+output "cluster_location" {
+  value = var.region
 }
 
 output "artifact_registry" {
@@ -324,6 +449,10 @@ output "artifact_registry" {
 
 output "sql_connection_name" {
   value = google_sql_database_instance.postgres.connection_name
+}
+
+output "sql_private_ip" {
+  value = google_sql_database_instance.postgres.private_ip_address
 }
 
 output "web_gsa_email" {
@@ -336,4 +465,12 @@ output "worker_gsa_email" {
 
 output "terraform_job_gsa_email" {
   value = google_service_account.terraform_job.email
+}
+
+output "secret_ids" {
+  value = {
+    session_secret   = google_secret_manager_secret.session.secret_id
+    database_url     = google_secret_manager_secret.db_url.secret_id
+    app_database_url = google_secret_manager_secret.app_db_url.secret_id
+  }
 }

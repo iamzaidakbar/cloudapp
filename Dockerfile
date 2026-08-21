@@ -12,6 +12,11 @@ FROM deps AS builder
 WORKDIR /app
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Next.js collects route data at build time and imports lib/env.ts — provide
+# placeholders only for the image build (runtime uses real K8s secrets).
+ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public"
+ENV APP_DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public"
+ENV SESSION_SECRET="build-time-placeholder-session-secret-32chars"
 RUN npx prisma generate && npm run build
 
 FROM node:22-bookworm-slim AS runner

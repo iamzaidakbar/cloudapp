@@ -59,16 +59,19 @@ spec:
             httpGet:
               path: /api/ready
               port: http
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 20
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
+        {{- if .Values.cloudsql.enabled }}
+        {{- include "cloudshiftg.cloudSqlProxyContainer" . | nindent 8 }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

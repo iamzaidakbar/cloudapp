@@ -1,9 +1,14 @@
-# Platform Terraform for CloudShift-G (GKE Autopilot, VPC, Cloud SQL, Pub/Sub, WI).
-# Not related to tenant migration HCL under lib/terraform/.
+# Platform Terraform for CloudShift-G (GKE Autopilot)
+
+Not related to tenant migration HCL under `lib/terraform/`.
+
+**Phase A runbook + completion checklist:** [docs/PHASE_A_CHECKLIST.md](../docs/PHASE_A_CHECKLIST.md)
 
 ## Prerequisites
+
 - `gcloud` authenticated with Owner/Editor on the target project
-- APIs: container, sqladmin, artifactregistry, pubsub, secretmanager, servicenetworking, compute
+- Billing enabled
+- APIs:
 
 ```bash
 gcloud services enable \
@@ -26,6 +31,12 @@ terraform plan  -var-file=environments/dev.tfvars
 terraform apply -var-file=environments/dev.tfvars
 ```
 
-After apply, create Secret Manager versions for `cloudshiftg-session-secret`,
-`cloudshiftg-app-database-url`, and `cloudshiftg-database-url`, then deploy
-the Helm chart under `deploy/helm/cloudshiftg`.
+Terraform creates SQL users, Secret Manager **versions** (proxy-form DB URLs + session secret), WI bindings, and AR reader for Autopilot nodes.
+
+Then follow Phase A scripts (from repo root):
+
+1. `scripts/phase-a-sync-k8s-secrets.sh` — copy SM → K8s Secret  
+2. `scripts/phase-a-build-push.sh` — build/push images  
+3. `scripts/phase-a-helm-upgrade.sh` — migrate Job + web/worker  
+
+CSI sync (no manual K8s Secret) is Phase B.

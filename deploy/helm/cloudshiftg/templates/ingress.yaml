@@ -4,7 +4,7 @@ kind: Ingress
 metadata:
   name: {{ .Values.fullname }}
   annotations:
-    kubernetes if .Values.ingress.managedCertificate }}
+    {{- if .Values.ingress.managedCertificate }}
     networking.gke.io/managed-certificates: {{ .Values.fullname }}-cert
     {{- end }}
     kubernetes.ingress.kubernetes.io/redirect-to-https: "true"
@@ -21,14 +21,4 @@ spec:
                 name: {{ .Values.fullname }}-web
                 port:
                   number: 80
-{{- if .Values.ingress.managedCertificate }}
----
-apiVersion: networking.gke.io/v1
-kind: ManagedCertificate
-metadata:
-  name: {{ .Values.fullname }}-cert
-spec:
-  domains:
-    - {{ .Values.ingress.host }}
-{{- end }}
 {{- end }}
