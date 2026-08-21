@@ -1,32 +1,22 @@
-import Link from "next/link";
-import { Cloud } from "lucide-react";
-import { SidebarNav } from "@/components/layout/sidebar-nav";
-import { AdminMenu } from "@/components/layout/admin-menu";
-import { APP_NAME } from "@/lib/constants";
+import { AppBrand } from "@/components/layout/app-brand";
+import { SidebarNav, SidebarSettingsLink } from "@/components/layout/sidebar-nav";
 
-type SidebarProps = {
-  admin: { email: string; name: string | null };
-};
-
-export function Sidebar({ admin }: SidebarProps) {
+export function Sidebar() {
   return (
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex xl:w-60">
-      <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-sidebar-border px-3 xl:px-4">
-        <Link
-          href="/dashboard"
-          className="flex items-center gap-2 font-semibold tracking-tight"
-        >
-          <Cloud className="size-4" />
-          <span className="text-sm">{APP_NAME}</span>
-        </Link>
+    <aside className="hidden w-[15.5rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex xl:w-64">
+      <div className="flex h-14 shrink-0 items-center px-5">
+        <AppBrand />
       </div>
 
-      <div className="flex-1 overflow-y-auto py-3">
-        <SidebarNav />
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto px-1 pb-4 pt-1">
+          <SidebarNav />
+        </div>
 
-      <div className="border-t border-sidebar-border px-2 py-2">
-        <AdminMenu admin={admin} />
+        <div className="shrink-0 px-1 pb-3 pt-2">
+          <div className="mx-2 mb-2 h-px bg-sidebar-border" />
+          <SidebarSettingsLink />
+        </div>
       </div>
     </aside>
   );

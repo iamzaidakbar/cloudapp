@@ -16,6 +16,7 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
+/** Primary sidebar links (Settings is pinned separately at the bottom). */
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Infrastructure", href: "/infrastructure", icon: Server },
@@ -24,5 +25,10 @@ export const navItems: NavItem[] = [
   { label: "Migrations", href: "/migrations", icon: ArrowRightLeft },
   { label: "Jobs", href: "/jobs", icon: ListChecks },
   { label: "Audit Log", href: "/audit-log", icon: FileClock },
-  { label: "Settings", href: "/settings", icon: Settings },
 ];
+
+export const settingsNavItem: NavItem = {
+  label: "Settings",
+  href: "/settings",
+  icon: Settings,
+};

@@ -32,11 +32,10 @@ export default async function PlatformLayout({
             Platform Operator
           </span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <ThemeToggle />
-          <div className="w-52">
-            <AdminMenu admin={admin} />
-          </div>
+          <div className="mx-0.5 hidden h-5 w-px bg-border sm:block" />
+          <AdminMenu admin={admin} variant="navbar" />
         </div>
       </header>
       <main className="flex-1 overflow-y-auto p-4 md:p-6">

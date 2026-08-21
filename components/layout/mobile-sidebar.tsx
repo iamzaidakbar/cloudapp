@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Cloud, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -11,15 +10,13 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { SidebarNav } from "@/components/layout/sidebar-nav";
-import { AdminMenu } from "@/components/layout/admin-menu";
-import { APP_NAME } from "@/lib/constants";
+import { AppBrand } from "@/components/layout/app-brand";
+import {
+  SidebarNav,
+  SidebarSettingsLink,
+} from "@/components/layout/sidebar-nav";
 
-type MobileSidebarProps = {
-  admin: { email: string; name: string | null };
-};
-
-export function MobileSidebar({ admin }: MobileSidebarProps) {
+export function MobileSidebar() {
   const [open, setOpen] = useState(false);
 
   return (
@@ -31,26 +28,21 @@ export function MobileSidebar({ admin }: MobileSidebarProps) {
         <Menu className="size-5" />
         <span className="sr-only">Open navigation</span>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 gap-0 p-0">
-        <SheetHeader className="border-b border-border">
-          <SheetTitle className="text-base">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2.5 font-semibold tracking-tight"
-              onClick={() => setOpen(false)}
-            >
-              <Cloud className="size-5" />
-              {APP_NAME}
-            </Link>
+      <SheetContent side="left" className="flex w-72 flex-col gap-0 p-0">
+        <SheetHeader className="px-5 py-4">
+          <SheetTitle className="text-left">
+            <AppBrand onNavigate={() => setOpen(false)} />
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto py-3">
-          <SidebarNav onNavigate={() => setOpen(false)} />
-        </div>
-
-        <div className="border-t border-border px-2 py-2">
-          <AdminMenu admin={admin} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex-1 overflow-y-auto px-1 pb-4">
+            <SidebarNav onNavigate={() => setOpen(false)} />
+          </div>
+          <div className="shrink-0 px-1 pb-3 pt-2">
+            <div className="mx-2 mb-2 h-px bg-border" />
+            <SidebarSettingsLink onNavigate={() => setOpen(false)} />
+          </div>
         </div>
       </SheetContent>
     </Sheet>
