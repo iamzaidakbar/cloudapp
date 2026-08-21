@@ -29,13 +29,13 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 px-3 py-2 text-[13px] transition-colors",
+        "flex items-center gap-2.5 px-2.5 py-2 text-sm transition-colors",
         isActive
-          ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
-          : "font-medium text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
+          ? "border border-border bg-card font-semibold text-foreground"
+          : "border border-transparent font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground",
       )}
     >
-      <Icon className="size-[18px] shrink-0 opacity-80" strokeWidth={1.75} />
+      <Icon className="size-4 shrink-0" />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -51,11 +51,11 @@ function NavGroup({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <p className="px-3 pb-1 text-[11px] font-medium text-muted-foreground/80">
+    <div className="flex flex-col gap-1.5">
+      <p className="px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         {items.map((item) => (
           <NavLink key={item.href} item={item} onNavigate={onNavigate} />
         ))}
@@ -66,7 +66,7 @@ function NavGroup({
 
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <nav className="flex flex-col gap-6 px-2">
+    <nav className="flex flex-col gap-5">
       <NavGroup label="Workflow" items={WORKFLOW} onNavigate={onNavigate} />
       <NavGroup label="Monitor" items={MONITOR} onNavigate={onNavigate} />
     </nav>
@@ -79,7 +79,10 @@ export function SidebarSettingsLink({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="px-2">
+    <nav>
+      <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        Account
+      </p>
       <NavLink item={settingsNavItem} onNavigate={onNavigate} />
     </nav>
   );

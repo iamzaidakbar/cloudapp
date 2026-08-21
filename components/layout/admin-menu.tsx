@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronDown, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -58,17 +58,14 @@ export function AdminMenu({
         )}
       >
         <Avatar size="sm" className="rounded-none after:rounded-none">
-          <AvatarFallback className="rounded-none bg-muted text-[11px] font-medium text-foreground">
+          <AvatarFallback className="rounded-none border border-border bg-muted text-[11px] font-medium text-foreground">
             {initials}
           </AvatarFallback>
         </Avatar>
         {variant === "navbar" ? (
-          <>
-            <span className="hidden max-w-[9rem] truncate text-sm font-medium text-foreground md:inline">
-              {displayName}
-            </span>
-            <ChevronDown className="hidden size-3.5 text-muted-foreground md:block" />
-          </>
+          <span className="hidden max-w-[8rem] truncate text-sm font-medium text-foreground sm:inline">
+            {displayName}
+          </span>
         ) : (
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{displayName}</p>
