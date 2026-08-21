@@ -39,4 +39,5 @@ Then follow Phase A scripts (from repo root):
 2. `scripts/phase-a-build-push.sh` — build/push images  
 3. `scripts/phase-a-helm-upgrade.sh` — migrate Job + web/worker  
 
-CSI sync (no manual K8s Secret) is Phase B.
+CSI sync (no manual K8s Secret) is Phase B — see [docs/PHASE_B_CHECKLIST.md](../docs/PHASE_B_CHECKLIST.md)
+and [deploy/external-secrets/README.md](../deploy/external-secrets/README.md).

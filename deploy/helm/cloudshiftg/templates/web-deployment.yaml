@@ -55,6 +55,30 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.name }}
                   key: SESSION_SECRET
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: AWS_ACCESS_KEY_ID
+                  optional: {{ .Values.secrets.awsOptional }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: {{ .Values.secrets.awsOptional }}
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: AWS_REGION
+                  optional: {{ .Values.secrets.awsOptional }}
+            - name: GCP_BILLING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: GCP_BILLING_API_KEY
+                  optional: true
           readinessProbe:
             httpGet:
               path: /api/ready

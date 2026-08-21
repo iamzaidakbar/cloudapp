@@ -194,7 +194,7 @@ Still for you in the browser (port-forward on 8080):
 - [ ] Open `http://localhost:8080` → register at `/onboarding` (or seed Platform Operator)
 - [ ] Connect AWS (or Dev Adapter) → Run Audit → confirm worker log `start AUDIT` / `done AUDIT`
 
-**Handoff:** Phase B = Secret Manager CSI; Phase C = Jobs + remote TF state.
+**Handoff:** Phase B = Secret Manager CSI / External Secrets + AWS on GKE — see [docs/PHASE_B_CHECKLIST.md](PHASE_B_CHECKLIST.md).
 
 ---
 

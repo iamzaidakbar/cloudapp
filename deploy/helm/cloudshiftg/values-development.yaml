@@ -25,3 +25,6 @@ worker:
 ingress:
   enabled: false
   host: cloudshiftg-dev.example.com
+
+secrets:
+  awsOptional: false

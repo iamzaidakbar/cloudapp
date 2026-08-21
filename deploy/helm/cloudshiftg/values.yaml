@@ -64,8 +64,11 @@ env:
   AWS_REGION: us-east-1
 
 secrets:
-  # Created manually in Phase A; CSI in Phase B
+  # Owned by External Secrets Operator in Phase B (Secret Manager → K8s).
+  # phase-a-sync-k8s-secrets.* is break-glass only.
   name: cloudshiftg-secrets
+  # After AWS SM versions exist and ExternalSecret syncs, set false.
+  awsOptional: false
 
 ingress:
   enabled: true

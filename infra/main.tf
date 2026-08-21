@@ -286,6 +286,12 @@ resource "google_service_account" "terraform_job" {
   display_name = "CloudShift-G terraform jobs"
 }
 
+# External Secrets Operator — syncs Secret Manager into K8s Secrets (Phase B)
+resource "google_service_account" "eso" {
+  account_id   = "cloudshiftg-eso"
+  display_name = "CloudShift-G External Secrets"
+}
+
 resource "google_project_iam_member" "worker_pubsub" {
   project = var.project_id
   role    = "roles/pubsub.subscriber"
@@ -359,6 +365,19 @@ resource "google_service_account_iam_member" "tf_wi_prod" {
   member             = "serviceAccount:${var.project_id}.svc.id.goog[production/cloudshiftg-terraform-job]"
 }
 
+# ESO controller SA (helm) + app-namespace SA used by SecretStore
+resource "google_service_account_iam_member" "eso_wi" {
+  service_account_id = google_service_account.eso.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[external-secrets/external-secrets]"
+}
+
+resource "google_service_account_iam_member" "eso_wi_dev_store" {
+  service_account_id = google_service_account.eso.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[development/cloudshiftg-eso-sa]"
+}
+
 # --- Secret Manager (versions written by Terraform for Phase A bootstrap) ---
 resource "google_secret_manager_secret" "session" {
   secret_id = "cloudshiftg-session-secret"
@@ -384,6 +403,39 @@ resource "google_secret_manager_secret" "db_url" {
   labels = local.labels
 }
 
+# Phase B — AWS / billing shells (versions added out-of-band; never commit key material)
+resource "google_secret_manager_secret" "aws_access_key_id" {
+  secret_id = "cloudshiftg-aws-access-key-id"
+  replication {
+    auto {}
+  }
+  labels = local.labels
+}
+
+resource "google_secret_manager_secret" "aws_secret_access_key" {
+  secret_id = "cloudshiftg-aws-secret-access-key"
+  replication {
+    auto {}
+  }
+  labels = local.labels
+}
+
+resource "google_secret_manager_secret" "aws_region" {
+  secret_id = "cloudshiftg-aws-region"
+  replication {
+    auto {}
+  }
+  labels = local.labels
+}
+
+resource "google_secret_manager_secret" "gcp_billing_api_key" {
+  secret_id = "cloudshiftg-gcp-billing-api-key"
+  replication {
+    auto {}
+  }
+  labels = local.labels
+}
+
 resource "google_secret_manager_secret_version" "session" {
   secret      = google_secret_manager_secret.session.id
   secret_data = random_password.session.result
@@ -399,40 +451,53 @@ resource "google_secret_manager_secret_version" "app_db_url" {
   secret_data = local.app_database_url_proxy
 }
 
-resource "google_secret_manager_secret_iam_member" "web_session" {
-  secret_id = google_secret_manager_secret.session.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.web.email}"
+resource "google_secret_manager_secret_version" "aws_region" {
+  secret      = google_secret_manager_secret.aws_region.id
+  secret_data = "us-east-1"
 }
 
-resource "google_secret_manager_secret_iam_member" "web_db" {
-  secret_id = google_secret_manager_secret.db_url.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.web.email}"
+# Placeholder so ExternalSecret can sync before a real billing key is set.
+# isGcpBillingConfigured() treats only non-empty real keys as configured —
+# "unset" is ignored by operators (replace via gcloud secrets versions add).
+resource "google_secret_manager_secret_version" "gcp_billing_placeholder" {
+  secret      = google_secret_manager_secret.gcp_billing_api_key.id
+  secret_data = "unset"
 }
 
-resource "google_secret_manager_secret_iam_member" "web_app_db" {
-  secret_id = google_secret_manager_secret.app_db_url.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.web.email}"
+locals {
+  secret_accessor_members = {
+    web    = "serviceAccount:${google_service_account.web.email}"
+    worker = "serviceAccount:${google_service_account.worker.email}"
+    eso    = "serviceAccount:${google_service_account.eso.email}"
+  }
+
+  all_app_secrets = {
+    session            = google_secret_manager_secret.session.secret_id
+    db_url             = google_secret_manager_secret.db_url.secret_id
+    app_db_url         = google_secret_manager_secret.app_db_url.secret_id
+    aws_access_key_id  = google_secret_manager_secret.aws_access_key_id.secret_id
+    aws_secret_access_key = google_secret_manager_secret.aws_secret_access_key.secret_id
+    aws_region         = google_secret_manager_secret.aws_region.secret_id
+    gcp_billing_api_key = google_secret_manager_secret.gcp_billing_api_key.secret_id
+  }
 }
 
-resource "google_secret_manager_secret_iam_member" "worker_session" {
-  secret_id = google_secret_manager_secret.session.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.worker.email}"
-}
+resource "google_secret_manager_secret_iam_member" "accessors" {
+  for_each = {
+    for pair in flatten([
+      for member_key, member in local.secret_accessor_members : [
+        for secret_key, secret_id in local.all_app_secrets : {
+          key       = "${member_key}-${secret_key}"
+          secret_id = secret_id
+          member    = member
+        }
+      ]
+    ]) : pair.key => pair
+  }
 
-resource "google_secret_manager_secret_iam_member" "worker_db" {
-  secret_id = google_secret_manager_secret.db_url.secret_id
+  secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.worker.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "worker_app_db" {
-  secret_id = google_secret_manager_secret.app_db_url.secret_id
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.worker.email}"
+  member    = each.value.member
 }
 
 output "cluster_name" {
@@ -467,10 +532,18 @@ output "terraform_job_gsa_email" {
   value = google_service_account.terraform_job.email
 }
 
+output "eso_gsa_email" {
+  value = google_service_account.eso.email
+}
+
 output "secret_ids" {
   value = {
-    session_secret   = google_secret_manager_secret.session.secret_id
-    database_url     = google_secret_manager_secret.db_url.secret_id
-    app_database_url = google_secret_manager_secret.app_db_url.secret_id
+    session_secret        = google_secret_manager_secret.session.secret_id
+    database_url          = google_secret_manager_secret.db_url.secret_id
+    app_database_url      = google_secret_manager_secret.app_db_url.secret_id
+    aws_access_key_id     = google_secret_manager_secret.aws_access_key_id.secret_id
+    aws_secret_access_key = google_secret_manager_secret.aws_secret_access_key.secret_id
+    aws_region            = google_secret_manager_secret.aws_region.secret_id
+    gcp_billing_api_key   = google_secret_manager_secret.gcp_billing_api_key.secret_id
   }
 }
