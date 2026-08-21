@@ -40,13 +40,59 @@ export async function createAuditRun(tenantId: string, dataSource: "AWS" | "DEV_
 }
 
 export async function listAuditRuns(tenantId: string, skip: number, take: number) {
-  const [items, total] = await withTenantContext(tenantId, (tx) =>
-    Promise.all([
-      tx.auditRun.findMany({ where: { tenantId }, orderBy: { version: "desc" }, skip, take }),
-      tx.auditRun.count({ where: { tenantId } }),
-    ]),
+  const [items, total, statusGroups, latestSucceeded] = await withTenantContext(
+    tenantId,
+    (tx) =>
+      Promise.all([
+        tx.auditRun.findMany({
+          where: { tenantId },
+          orderBy: { version: "desc" },
+          skip,
+          take,
+        }),
+        tx.auditRun.count({ where: { tenantId } }),
+        tx.auditRun.groupBy({
+          by: ["status"],
+          where: { tenantId },
+          _count: { _all: true },
+        }),
+        tx.auditRun.findFirst({
+          where: { tenantId, status: "SUCCEEDED" },
+          orderBy: { version: "desc" },
+          select: {
+            version: true,
+            resourceCount: true,
+            findingCount: true,
+            criticalFindingCount: true,
+            estimatedMonthlyCost: true,
+            costDataAvailable: true,
+            finishedAt: true,
+          },
+        }),
+      ]),
   );
-  return { items: items.map(serializeAuditRun), total };
+
+  const countsByStatus = Object.fromEntries(
+    statusGroups.map((row) => [row.status, row._count._all]),
+  ) as Record<string, number>;
+
+  const stats = {
+    total,
+    succeeded: countsByStatus.SUCCEEDED ?? 0,
+    failed: countsByStatus.FAILED ?? 0,
+    running:
+      (countsByStatus.RUNNING ?? 0) + (countsByStatus.QUEUED ?? 0),
+    latestSucceeded: latestSucceeded
+      ? {
+          ...latestSucceeded,
+          estimatedMonthlyCost: decimalToNumber(
+            latestSucceeded.estimatedMonthlyCost,
+          ),
+        }
+      : null,
+  };
+
+  return { items: items.map(serializeAuditRun), total, stats };
 }
 
 export async function getAuditRun(tenantId: string, id: string) {

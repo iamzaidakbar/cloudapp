@@ -26,15 +26,15 @@ function KpiTile({
 }) {
   return (
     <StaggerItem index={index} className="h-full">
-      <div className="group flex h-full flex-col justify-between border border-border bg-card p-4 transition-colors hover:bg-muted/40">
+      <div className="group flex h-full flex-col justify-between border border-border bg-card p-3.5 transition-colors hover:bg-muted/40 xl:p-4">
         <div className="flex items-start justify-between gap-2">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             {label}
           </p>
           <Icon className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
         </div>
-        <div className="mt-4 flex flex-col gap-1">
-          <p className="text-3xl font-semibold tracking-tight tabular-nums text-foreground">
+        <div className="mt-3 flex flex-col gap-0.5 xl:mt-4">
+          <p className="text-2xl font-semibold tracking-tight tabular-nums text-foreground xl:text-3xl">
             {value}
           </p>
           <p className="text-xs text-muted-foreground">{hint}</p>

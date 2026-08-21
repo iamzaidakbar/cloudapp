@@ -7,6 +7,7 @@ export function AuditStatusBadge({ status }: { status: JobStatus }) {
   return (
     <StatusBadge
       pulse={status === "RUNNING"}
+      uniform
       className={cn(RUN_STATUS_CLASS[status])}
     >
       {RUN_STATUS_LABEL[status]}

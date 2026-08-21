@@ -1,13 +1,16 @@
 import { ClipboardCheck } from "lucide-react";
+import Link from "next/link";
 import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { getActiveAuditRun, listAuditRuns } from "@/lib/audits";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
-import { RunAuditButton } from "@/components/audits/run-audit-button";
+import { AuditsHero } from "@/components/audits/audits-hero";
+import { AuditKpis } from "@/components/audits/audit-kpis";
 import { AuditRunsTable } from "@/components/audits/audit-runs-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
-import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default async function AuditsPage({
   searchParams,
@@ -20,27 +23,35 @@ export default async function AuditsPage({
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
-      value === undefined ? [] : [[key, Array.isArray(value) ? value[0] : value]],
+      value === undefined
+        ? []
+        : [[key, Array.isArray(value) ? value[0] : value]],
     ),
   );
   const { page, pageSize, skip, take } = parsePagination(urlSearchParams);
 
-  const { items, total } = await listAuditRuns(admin.tenantId, skip, take);
+  const { items, total, stats } = await listAuditRuns(
+    admin.tenantId,
+    skip,
+    take,
+  );
   const meta = paginationMeta(page, pageSize, total);
-
   const activeRun = await getActiveAuditRun(admin.tenantId);
+
+  const canRun =
+    admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED";
+  const connected = connection?.status === "CONNECTED";
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Audits"
-        description={`Run and review AWS infrastructure audits for ${tenant?.name ?? "your organization"}.`}
-        actions={
-          admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
-            <RunAuditButton hasActiveRun={Boolean(activeRun)} activeRunStartedAt={activeRun?.startedAt} />
-          ) : null
-        }
+      <AuditsHero
+        tenantName={tenant?.name ?? "your organization"}
+        canRun={canRun}
+        hasActiveRun={Boolean(activeRun)}
+        activeRunStartedAt={activeRun?.startedAt}
+        totalRuns={total}
       />
+      {total > 0 ? <AuditKpis stats={stats} /> : null}
 
       <DataTableShell
         isEmpty={total === 0}
@@ -49,11 +60,23 @@ export default async function AuditsPage({
             icon={ClipboardCheck}
             title="No audits yet"
             description={
-              connection?.status === "CONNECTED"
+              connected
                 ? "Run your first audit to discover and catalog your AWS resources."
                 : "Connect an AWS account before running an audit."
             }
-          />
+          >
+            {!connected ? (
+              <Link
+                href="/onboarding"
+                className={cn(
+                  buttonVariants({ variant: "default", size: "sm" }),
+                  "mt-1",
+                )}
+              >
+                Connect AWS
+              </Link>
+            ) : null}
+          </EmptyState>
         }
         pagination={meta}
         buildPageHref={(p) => `/audits?page=${p}`}

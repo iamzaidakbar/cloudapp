@@ -17,6 +17,8 @@ type StatusBadgeProps = {
   children: ReactNode;
   className?: string;
   pulse?: boolean;
+  /** Fixed min-width so status labels align in tables. */
+  uniform?: boolean;
 };
 
 export function StatusBadge({
@@ -24,6 +26,7 @@ export function StatusBadge({
   children,
   className,
   pulse,
+  uniform,
 }: StatusBadgeProps) {
   return (
     <Badge
@@ -31,6 +34,7 @@ export function StatusBadge({
       className={cn(
         "normal-case tracking-normal",
         TONE_CLASS[tone],
+        uniform && "min-w-[5.75rem] justify-center",
         className,
       )}
     >

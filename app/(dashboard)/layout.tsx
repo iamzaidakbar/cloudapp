@@ -17,12 +17,12 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-dvh overflow-hidden bg-background">
       <Sidebar admin={admin} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header admin={admin} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="mx-auto w-full max-w-7xl animate-in fade-in duration-200">
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[90rem] animate-in fade-in duration-200 px-4 py-4 md:px-6 md:py-5 xl:px-8">
             {children}
           </div>
         </main>

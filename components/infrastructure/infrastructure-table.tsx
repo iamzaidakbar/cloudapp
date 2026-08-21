@@ -10,7 +10,6 @@ import {
 import { ResourceStatusBadge } from "@/components/infrastructure/resource-status-badge";
 import { DataSourceBadge } from "@/components/aws/data-source-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
-import { StaggerItem } from "@/components/motion/stagger-list";
 import { SERVICE_LABEL } from "@/components/infrastructure/service-labels";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
@@ -37,96 +36,82 @@ export function InfrastructureTable({
   dataSource: "AWS" | "DEV_ADAPTER" | null;
 }) {
   return (
-    <Table>
-      <TableHeader>
+    <Table className="table-fixed">
+      <TableHeader className="bg-card">
         <TableRow className="hover:bg-transparent">
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[9rem] text-[11px] uppercase tracking-wider">
             Service
           </TableHead>
           <TableHead className="text-[11px] uppercase tracking-wider">
             Resource
           </TableHead>
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[7.5rem] text-[11px] uppercase tracking-wider">
             Region
           </TableHead>
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[7rem] text-[11px] uppercase tracking-wider">
             Status
           </TableHead>
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[7rem] text-[11px] uppercase tracking-wider">
             Environment
           </TableHead>
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[5rem] text-[11px] uppercase tracking-wider">
             Tags
           </TableHead>
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[6.5rem] text-[11px] uppercase tracking-wider">
             Cost
           </TableHead>
-          <TableHead className="text-[11px] uppercase tracking-wider">
+          <TableHead className="w-[9.5rem] text-[11px] uppercase tracking-wider">
             Collected
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((resource, index) => {
+        {items.map((resource) => {
           const tagCount = Object.keys(resource.tags).length;
           return (
             <TableRow key={resource.id} className="group relative">
               <TableCell>
-                <StaggerItem index={index}>
-                  <span className="border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {SERVICE_LABEL[resource.service]}
-                  </span>
-                </StaggerItem>
+                <span className="inline-block max-w-full truncate border border-border bg-muted/50 px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {SERVICE_LABEL[resource.service]}
+                </span>
               </TableCell>
-              <TableCell>
-                <StaggerItem index={index}>
-                  <div className="flex items-center gap-1.5">
-                    <Link
-                      href={`/infrastructure/${resource.id}`}
-                      className="font-medium text-foreground after:absolute after:inset-0 group-hover:underline"
-                    >
-                      {resource.name ?? resource.resourceId}
-                    </Link>
-                    {dataSource ? (
+              <TableCell className="max-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Link
+                    href={`/infrastructure/${resource.id}`}
+                    className="truncate font-medium text-foreground after:absolute after:inset-0 group-hover:underline"
+                  >
+                    {resource.name ?? resource.resourceId}
+                  </Link>
+                  {dataSource ? (
+                    <span className="relative z-10 shrink-0">
                       <DataSourceBadge dataSource={dataSource} compact />
-                    ) : null}
-                  </div>
-                  <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    {resource.resourceId}
-                  </p>
-                </StaggerItem>
+                    </span>
+                  ) : null}
+                </div>
+                <p className="relative z-10 mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                  {resource.resourceId}
+                </p>
               </TableCell>
-              <TableCell className="font-mono text-xs">
-                <StaggerItem index={index}>{resource.region}</StaggerItem>
-              </TableCell>
+              <TableCell className="font-mono text-xs">{resource.region}</TableCell>
               <TableCell>
-                <StaggerItem index={index}>
-                  <ResourceStatusBadge status={resource.status} />
-                </StaggerItem>
+                <ResourceStatusBadge status={resource.status} />
+              </TableCell>
+              <TableCell className="truncate text-muted-foreground">
+                {resource.environment ?? "—"}
               </TableCell>
               <TableCell className="text-muted-foreground">
-                <StaggerItem index={index}>
-                  {resource.environment ?? "—"}
-                </StaggerItem>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                <StaggerItem index={index}>
-                  {tagCount > 0
-                    ? `${tagCount} tag${tagCount === 1 ? "" : "s"}`
-                    : "—"}
-                </StaggerItem>
+                {tagCount > 0
+                  ? `${tagCount} tag${tagCount === 1 ? "" : "s"}`
+                  : "—"}
               </TableCell>
               <TableCell className="tabular-nums">
-                <StaggerItem index={index}>
-                  {resource.costAvailable && resource.monthlyCost !== null
-                    ? formatCurrency(resource.monthlyCost)
-                    : "—"}
-                </StaggerItem>
+                {resource.costAvailable && resource.monthlyCost !== null
+                  ? formatCurrency(resource.monthlyCost)
+                  : "—"}
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
-                <StaggerItem index={index}>
-                  <FormattedDateTime value={resource.createdAt} />
-                </StaggerItem>
+                <FormattedDateTime value={resource.createdAt} />
               </TableCell>
             </TableRow>
           );

@@ -26,7 +26,7 @@ export function MobileSidebar({ admin }: MobileSidebarProps) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         render={<Button variant="ghost" size="icon" />}
-        className="md:hidden"
+        className="lg:hidden"
       >
         <Menu className="size-5" />
         <span className="sr-only">Open navigation</span>

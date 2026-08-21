@@ -10,7 +10,6 @@ import { InfrastructureFilterBar } from "@/components/infrastructure/infrastruct
 import { InfrastructureTable } from "@/components/infrastructure/infrastructure-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
 import { EmptyState } from "@/components/empty-state";
-import { FadeIn } from "@/components/motion/fade-in";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +53,7 @@ export default async function InfrastructurePage({
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <InfrastructureHero
         hasInventory={Boolean(auditRun)}
         auditVersion={auditRun?.version}
@@ -74,58 +73,52 @@ export default async function InfrastructurePage({
             estimatedMonthlyCost={inventoryStats.estimatedMonthlyCost}
             costSampleCount={inventoryStats.costSampleCount}
           />
-
           <ServiceBreakdown
             breakdown={inventoryStats.serviceBreakdown}
             activeService={filters.service}
             totalResources={inventoryStats.totalResources}
           />
+          <InfrastructureFilterBar filterOptions={filterOptions} />
 
-          <FadeIn delayMs={60}>
-            <div className="flex flex-col gap-3">
-              <InfrastructureFilterBar filterOptions={filterOptions} />
-
-              <DataTableShell
-                isEmpty={total === 0}
-                emptyState={
-                  hasActiveFilters ? (
-                    <EmptyState
-                      icon={Server}
-                      title="No resources match"
-                      description="Try clearing filters or adjusting your search."
-                    >
-                      <Link
-                        href="/infrastructure"
-                        className={cn(
-                          buttonVariants({ variant: "outline", size: "sm" }),
-                          "mt-1",
-                        )}
-                      >
-                        Clear filters
-                      </Link>
-                    </EmptyState>
-                  ) : (
-                    <EmptyState
-                      icon={Server}
-                      title="No resources in this audit"
-                      description="The latest succeeded audit returned an empty inventory."
-                    />
-                  )
-                }
-                pagination={meta}
-                buildPageHref={(p) => {
-                  const next = new URLSearchParams(urlSearchParams);
-                  next.set("page", String(p));
-                  return `/infrastructure?${next.toString()}`;
-                }}
-              >
-                <InfrastructureTable
-                  items={items}
-                  dataSource={auditRun.dataSource ?? null}
+          <DataTableShell
+            isEmpty={total === 0}
+            emptyState={
+              hasActiveFilters ? (
+                <EmptyState
+                  icon={Server}
+                  title="No resources match"
+                  description="Try clearing filters or adjusting your search."
+                >
+                  <Link
+                    href="/infrastructure"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "mt-1",
+                    )}
+                  >
+                    Clear filters
+                  </Link>
+                </EmptyState>
+              ) : (
+                <EmptyState
+                  icon={Server}
+                  title="No resources in this audit"
+                  description="The latest succeeded audit returned an empty inventory."
                 />
-              </DataTableShell>
-            </div>
-          </FadeIn>
+              )
+            }
+            pagination={meta}
+            buildPageHref={(p) => {
+              const next = new URLSearchParams(urlSearchParams);
+              next.set("page", String(p));
+              return `/infrastructure?${next.toString()}`;
+            }}
+          >
+            <InfrastructureTable
+              items={items}
+              dataSource={auditRun.dataSource ?? null}
+            />
+          </DataTableShell>
         </>
       ) : (
         <EmptyState

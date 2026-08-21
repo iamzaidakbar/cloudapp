@@ -10,14 +10,14 @@ type SidebarProps = {
 
 export function Sidebar({ admin }: SidebarProps) {
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
-      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex xl:w-60">
+      <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-sidebar-border px-3 xl:px-4">
         <Link
           href="/dashboard"
-          className="flex items-center gap-2.5 font-semibold tracking-tight"
+          className="flex items-center gap-2 font-semibold tracking-tight"
         >
-          <Cloud className="size-5" />
-          <span>{APP_NAME}</span>
+          <Cloud className="size-4" />
+          <span className="text-sm">{APP_NAME}</span>
         </Link>
       </div>
 

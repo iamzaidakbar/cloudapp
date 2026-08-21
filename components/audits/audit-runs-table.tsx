@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AuditStatusBadge } from "@/components/audits/audit-status-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
-import { StaggerItem } from "@/components/motion/stagger-list";
 import { formatCurrency } from "@/lib/format";
 import type { JobStatus } from "@/lib/generated/prisma/client";
 
@@ -20,51 +26,70 @@ export type AuditRunRow = {
 
 export function AuditRunsTable({ runs }: { runs: AuditRunRow[] }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Version</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Started</TableHead>
-          <TableHead>Completed</TableHead>
-          <TableHead>Resources</TableHead>
-          <TableHead>Findings</TableHead>
-          <TableHead>Cost</TableHead>
+    <Table className="table-fixed">
+      <TableHeader className="bg-card">
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-[6rem] text-[11px] uppercase tracking-wider">
+            Version
+          </TableHead>
+          <TableHead className="w-[8rem] text-[11px] uppercase tracking-wider">
+            Status
+          </TableHead>
+          <TableHead className="text-[11px] uppercase tracking-wider">
+            Started
+          </TableHead>
+          <TableHead className="text-[11px] uppercase tracking-wider">
+            Completed
+          </TableHead>
+          <TableHead className="w-[7rem] text-[11px] uppercase tracking-wider">
+            Resources
+          </TableHead>
+          <TableHead className="w-[7rem] text-[11px] uppercase tracking-wider">
+            Findings
+          </TableHead>
+          <TableHead className="w-[8rem] text-[11px] uppercase tracking-wider">
+            Cost
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {runs.map((run, index) => (
-          <TableRow key={run.id} className="relative">
+        {runs.map((run) => (
+          <TableRow key={run.id} className="group relative">
             <TableCell>
-              <StaggerItem index={index}>
-                <Link href={`/audits/${run.id}`} className="font-medium after:absolute after:inset-0 hover:underline">
-                  #{run.version}
-                </Link>
-              </StaggerItem>
+              <Link
+                href={`/audits/${run.id}`}
+                className="font-medium after:absolute after:inset-0 group-hover:underline"
+              >
+                #{run.version}
+              </Link>
             </TableCell>
             <TableCell>
-              <StaggerItem index={index}>
-                <AuditStatusBadge status={run.status} />
-              </StaggerItem>
+              <AuditStatusBadge status={run.status} />
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              <StaggerItem index={index}>{run.startedAt ? <FormattedDateTime value={run.startedAt} /> : "—"}</StaggerItem>
+              {run.startedAt ? (
+                <FormattedDateTime value={run.startedAt} />
+              ) : (
+                "—"
+              )}
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              <StaggerItem index={index}>{run.finishedAt ? <FormattedDateTime value={run.finishedAt} /> : "—"}</StaggerItem>
+              {run.finishedAt ? (
+                <FormattedDateTime value={run.finishedAt} />
+              ) : (
+                "—"
+              )}
             </TableCell>
-            <TableCell>
-              <StaggerItem index={index}>{run.resourceCount ?? "—"}</StaggerItem>
+            <TableCell className="tabular-nums">
+              {run.resourceCount ?? "—"}
             </TableCell>
-            <TableCell>
-              <StaggerItem index={index}>{run.findingCount ?? "—"}</StaggerItem>
+            <TableCell className="tabular-nums">
+              {run.findingCount ?? "—"}
             </TableCell>
-            <TableCell>
-              <StaggerItem index={index}>
-                {run.costDataAvailable && run.estimatedMonthlyCost !== null
-                  ? formatCurrency(run.estimatedMonthlyCost)
-                  : "—"}
-              </StaggerItem>
+            <TableCell className="tabular-nums">
+              {run.costDataAvailable && run.estimatedMonthlyCost !== null
+                ? formatCurrency(run.estimatedMonthlyCost)
+                : "—"}
             </TableCell>
           </TableRow>
         ))}

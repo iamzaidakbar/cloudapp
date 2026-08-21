@@ -50,54 +50,85 @@ export function AuditFindingsPanel({ auditRunId }: { auditRunId: string }) {
 
   if (!data) {
     return (
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-48 w-full" />
-      </div>
+      <section className="border border-border bg-card">
+        <div className="border-b border-border px-4 py-3 md:px-5">
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <div className="flex flex-col gap-3 p-4 md:p-5">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+      </section>
     );
   }
 
-  if (!data) return null;
-
   return (
-    <div className="flex flex-col gap-3">
-      <FindingsFilterBar severity={severity} onSeverityChange={handleSeverityChange} />
+    <section className="border border-border bg-card">
+      <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border px-4 py-3 md:px-5">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-sm font-semibold tracking-tight">Findings</h2>
+          <p className="text-xs text-muted-foreground">
+            {data.total === 0
+              ? "No issues surfaced for this run"
+              : `${data.total.toLocaleString()} finding${data.total === 1 ? "" : "s"}`}
+          </p>
+        </div>
+      </div>
 
-      {data.total === 0 ? (
-        <EmptyState
-          icon={ShieldCheck}
-          title={severity === "all" ? "No findings" : `No ${severity.toLowerCase()} findings`}
-          description={
-            severity === "all" ? "This audit run didn't surface any findings." : "Try a different severity filter."
-          }
+      <div className="flex flex-col gap-3 p-4 md:p-5">
+        <FindingsFilterBar
+          severity={severity}
+          onSeverityChange={handleSeverityChange}
         />
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-none border border-border">
-            <FindingsTable findings={data.items} />
-          </div>
-          {data.totalPages > 1 ? (
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <p>
-                Page {data.page} of {data.totalPages} · {data.total} total
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="icon-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  <ChevronLeft className="size-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={page >= data.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
+
+        {data.total === 0 ? (
+          <EmptyState
+            icon={ShieldCheck}
+            title={
+              severity === "all"
+                ? "No findings"
+                : `No ${severity.toLowerCase()} findings`
+            }
+            description={
+              severity === "all"
+                ? "This audit run didn't surface any findings."
+                : "Try a different severity filter."
+            }
+            className="border-solid"
+          />
+        ) : (
+          <>
+            <div className="overflow-x-auto border border-border">
+              <FindingsTable findings={data.items} />
             </div>
-          ) : null}
-        </>
-      )}
-    </div>
+            {data.totalPages > 1 ? (
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <p>
+                  Page {data.page} of {data.totalPages} · {data.total} total
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={page >= data.totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </section>
   );
 }

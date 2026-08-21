@@ -16,6 +16,7 @@ type DataTableShellProps = {
   };
   buildPageHref: (page: number) => string;
   children: ReactNode;
+  className?: string;
 };
 
 export function DataTableShell({
@@ -24,6 +25,7 @@ export function DataTableShell({
   pagination,
   buildPageHref,
   children,
+  className,
 }: DataTableShellProps) {
   if (isEmpty) return <>{emptyState}</>;
 
@@ -32,14 +34,14 @@ export function DataTableShell({
   const end = Math.min(page * pagination.pageSize, total);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn("flex flex-col gap-3", className)}>
       <Surface className="overflow-x-auto">{children}</Surface>
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <p>
+      <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+        <p className="tabular-nums">
           Showing {start}–{end} of {total}
         </p>
         <div className="flex items-center gap-2">
-          <p>
+          <p className="tabular-nums">
             Page {page} of {totalPages}
           </p>
           {page > 1 ? (
