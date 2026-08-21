@@ -6,7 +6,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmptyState } from "@/components/empty-state";
 import { ConnectionStatusBadge } from "@/components/aws/connection-status-badge";
@@ -102,17 +101,15 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Connection Status</CardTitle>
-            <CardDescription>{tenant.name}</CardDescription>
-          </div>
-          <ConnectionStatusBadge status={connection.status} />
+    <section className="border border-border bg-card">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 md:px-5">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight">Connection status</h2>
+          <p className="truncate text-xs text-muted-foreground">{tenant.name}</p>
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+        <ConnectionStatusBadge status={connection.status} />
+      </div>
+      <div className="flex flex-col gap-4 p-4 md:p-5">
         {actionError ? (
           <Alert variant="destructive">
             <AlertTitle>{connection.status === "FAILED" ? "Verification failed" : "Error"}</AlertTitle>
@@ -123,7 +120,7 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
         <ConnectionSummary connection={connection} />
 
         {isReconnecting ? (
-          <div className="flex flex-col gap-2 rounded-none border border-border p-3">
+          <div className="flex flex-col gap-2 border border-border p-3">
             <Label htmlFor="reconnect-role-arn">New Role ARN</Label>
             <Input
               id="reconnect-role-arn"
@@ -173,7 +170,7 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

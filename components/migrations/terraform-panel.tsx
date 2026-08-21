@@ -5,7 +5,6 @@ import { Loader2, FileCode2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PanelReveal } from "@/components/motion/panel-reveal";
 import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
@@ -96,27 +95,28 @@ export function TerraformPanel({
 
   return (
     <PanelReveal>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle>Terraform</CardTitle>
-            <Button type="button" onClick={handleGenerate} disabled={isStarting || isActive} variant={run ? "outline" : "default"}>
-              {isStarting || isActive ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {isActive ? "Running…" : "Starting…"}
-                </>
-              ) : (
-                <>
-                  <FileCode2 className="size-4" />
-                  {run ? "Regenerate Terraform" : "Generate Terraform"}
-                </>
-              )}
-            </Button>
+      <section className="border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 md:px-5">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-sm font-semibold tracking-tight">Terraform</h2>
+            <p className="text-xs text-muted-foreground">Generate and validate infrastructure as code</p>
           </div>
-        </CardHeader>
+          <Button type="button" onClick={handleGenerate} disabled={isStarting || isActive} variant={run ? "outline" : "default"}>
+            {isStarting || isActive ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {isActive ? "Running…" : "Starting…"}
+              </>
+            ) : (
+              <>
+                <FileCode2 className="size-4" />
+                {run ? "Regenerate Terraform" : "Generate Terraform"}
+              </>
+            )}
+          </Button>
+        </div>
 
-        <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 p-4 md:p-5">
           {error ? (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -124,7 +124,7 @@ export function TerraformPanel({
           ) : null}
 
           {run ? (
-            <div className="flex flex-col gap-3 rounded-none border border-border p-3">
+            <div className="flex flex-col gap-3 border border-border p-3">
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>Run #{run.version}</span>
                 <StatusTransition statusKey={run.status}>
@@ -147,7 +147,7 @@ export function TerraformPanel({
 
               <div className="flex flex-col gap-1">
                 <p className="text-xs font-medium text-muted-foreground">Generated configuration (main.tf)</p>
-                <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.terraformConfig}</pre>
+                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.terraformConfig}</pre>
               </div>
 
               {run.validateSucceeded !== null ? (
@@ -178,18 +178,18 @@ export function TerraformPanel({
                     terraform plan — {run.resourcesToCreate ?? 0} resource{run.resourcesToCreate === 1 ? "" : "s"} would be created
                     (read-only dry run against your real GCP project — nothing was created)
                   </p>
-                  <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
+                  <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
                 </div>
               ) : run.planOutput ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-medium text-destructive">terraform plan failed</p>
-                  <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
+                  <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
                 </div>
               ) : null}
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </PanelReveal>
   );
 }

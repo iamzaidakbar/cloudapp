@@ -1,5 +1,6 @@
+import type { ComponentType } from "react";
 import { Boxes, Wallet, CloudCog, Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import { formatCurrency } from "@/lib/format";
 
 type MigrationSummaryCardsProps = {
@@ -10,6 +11,39 @@ type MigrationSummaryCardsProps = {
   costDataAvailable: boolean;
 };
 
+function KpiTile({
+  index,
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  index: number;
+  label: string;
+  value: string;
+  hint: string;
+  icon: ComponentType<{ className?: string }>;
+}) {
+  return (
+    <StaggerItem index={index} className="h-full">
+      <div className="group flex h-full flex-col justify-between border border-border bg-card p-3.5 transition-colors hover:bg-muted/40">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            {label}
+          </p>
+          <Icon className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
+        </div>
+        <div className="mt-3 flex flex-col gap-0.5">
+          <p className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
+            {value}
+          </p>
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        </div>
+      </div>
+    </StaggerItem>
+  );
+}
+
 export function MigrationSummaryCards({
   resourceCount,
   estimatedMigrationCost,
@@ -18,60 +52,47 @@ export function MigrationSummaryCards({
   costDataAvailable,
 }: MigrationSummaryCardsProps) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <Boxes className="size-4" />
-            Resources
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{resourceCount}</p>
-        </CardContent>
-      </Card>
-
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <Wallet className="size-4" />
-            Est. Migration Cost
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">
-            {costDataAvailable && estimatedMigrationCost !== null ? formatCurrency(estimatedMigrationCost) : "N/A"}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <CloudCog className="size-4" />
-            Current AWS Cost
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">
-            {costDataAvailable && estimatedAwsMonthlyCost !== null ? formatCurrency(estimatedAwsMonthlyCost) : "N/A"}
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <Sparkles className="size-4" />
-            GCP Optimized Cost
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">
-            {costDataAvailable && estimatedGcpMonthlyCost !== null ? formatCurrency(estimatedGcpMonthlyCost) : "N/A"}
-          </p>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <KpiTile
+        index={0}
+        label="Resources"
+        value={resourceCount.toLocaleString()}
+        hint="In this plan"
+        icon={Boxes}
+      />
+      <KpiTile
+        index={1}
+        label="Est. migration cost"
+        value={
+          costDataAvailable && estimatedMigrationCost !== null
+            ? formatCurrency(estimatedMigrationCost)
+            : "N/A"
+        }
+        hint="One-time estimate"
+        icon={Wallet}
+      />
+      <KpiTile
+        index={2}
+        label="Current AWS cost"
+        value={
+          costDataAvailable && estimatedAwsMonthlyCost !== null
+            ? formatCurrency(estimatedAwsMonthlyCost)
+            : "N/A"
+        }
+        hint="Monthly"
+        icon={CloudCog}
+      />
+      <KpiTile
+        index={3}
+        label="GCP optimized cost"
+        value={
+          costDataAvailable && estimatedGcpMonthlyCost !== null
+            ? formatCurrency(estimatedGcpMonthlyCost)
+            : "N/A"
+        }
+        hint="Monthly target"
+        icon={Sparkles}
+      />
     </div>
   );
 }

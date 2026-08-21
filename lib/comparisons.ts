@@ -61,13 +61,57 @@ export async function createComparisonRun(
 }
 
 export async function listComparisonRuns(tenantId: string, skip: number, take: number) {
-  const [items, total] = await withTenantContext(tenantId, (tx) =>
-    Promise.all([
-      tx.comparisonRun.findMany({ where: { tenantId }, orderBy: { version: "desc" }, skip, take }),
-      tx.comparisonRun.count({ where: { tenantId } }),
-    ]),
+  const [items, total, statusGroups, latestSucceeded] = await withTenantContext(
+    tenantId,
+    (tx) =>
+      Promise.all([
+        tx.comparisonRun.findMany({
+          where: { tenantId },
+          orderBy: { version: "desc" },
+          skip,
+          take,
+        }),
+        tx.comparisonRun.count({ where: { tenantId } }),
+        tx.comparisonRun.groupBy({
+          by: ["status"],
+          where: { tenantId },
+          _count: { _all: true },
+        }),
+        tx.comparisonRun.findFirst({
+          where: { tenantId, status: "SUCCEEDED" },
+          orderBy: { version: "desc" },
+          select: {
+            version: true,
+            itemCount: true,
+            totalAwsMonthlyCost: true,
+            totalGcpOptimizedCost: true,
+            costDataAvailable: true,
+          },
+        }),
+      ]),
   );
-  return { items: items.map(serializeComparisonRun), total };
+
+  const countsByStatus = Object.fromEntries(
+    statusGroups.map((row) => [row.status, row._count._all]),
+  ) as Record<string, number>;
+
+  const stats = {
+    total,
+    succeeded: countsByStatus.SUCCEEDED ?? 0,
+    failed: countsByStatus.FAILED ?? 0,
+    running: (countsByStatus.RUNNING ?? 0) + (countsByStatus.QUEUED ?? 0),
+    latestSucceeded: latestSucceeded
+      ? {
+          version: latestSucceeded.version,
+          itemCount: latestSucceeded.itemCount,
+          totalAwsMonthlyCost: decimalToNumber(latestSucceeded.totalAwsMonthlyCost),
+          totalGcpOptimizedCost: decimalToNumber(latestSucceeded.totalGcpOptimizedCost),
+          costDataAvailable: latestSucceeded.costDataAvailable,
+        }
+      : null,
+  };
+
+  return { items: items.map(serializeComparisonRun), total, stats };
 }
 
 export async function getComparisonRun(tenantId: string, id: string) {

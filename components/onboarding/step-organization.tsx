@@ -7,7 +7,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { registerSchema, type RegisterInput } from "@/lib/validation/onboarding";
 import type { Tenant, AwsConnection } from "@/lib/generated/prisma/client";
@@ -44,15 +43,15 @@ export function StepOrganization({ onCreated }: StepOrganizationProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Register your organization</CardTitle>
-        <CardDescription>
+    <section className="border border-border bg-card">
+      <div className="border-b border-border px-4 py-3 md:px-5">
+        <h2 className="text-sm font-semibold tracking-tight">Register your organization</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Create your organization and its first Tenant Admin account — the admin who connects your AWS account
           and approves migrations.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
+      </div>
+      <div className="p-4 md:p-5">
         <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
           {serverError ? (
             <Alert variant="destructive">
@@ -116,7 +115,7 @@ export function StepOrganization({ onCreated }: StepOrganizationProps) {
             )}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

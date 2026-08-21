@@ -5,7 +5,7 @@ import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getLatestApplyRun } from "@/lib/apply-runs";
 import { getLatestVerificationRun } from "@/lib/verification-runs";
 import { getLatestRollbackRun } from "@/lib/rollback-runs";
-import { MigrationStatusBadge } from "@/components/migrations/migration-status-badge";
+import { MigrationPlanHero } from "@/components/migrations/migration-plan-hero";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
 import { PlanActions } from "@/components/migrations/plan-actions";
@@ -14,7 +14,6 @@ import { ApplyPanel } from "@/components/migrations/apply-panel";
 import { VerificationPanel } from "@/components/migrations/verification-panel";
 import { RollbackPanel } from "@/components/migrations/rollback-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
-import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default async function MigrationPlanPage({ params }: { params: Promise<{ id: string }> }) {
@@ -36,27 +35,19 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   const rollbackRun = canRollback ? await getLatestRollbackRun(admin.tenantId, id) : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        title={`Migration #${plan.sequenceNumber}`}
-        description={
-          <>
-            Created <FormattedDateTime value={plan.createdAt} />
-            {plan.approvedAt ? (
-              <>
-                {" "}
-                · Approved <FormattedDateTime value={plan.approvedAt} />
-              </>
-            ) : null}
-            {plan.cancelledAt ? (
-              <>
-                {" "}
-                · Cancelled <FormattedDateTime value={plan.cancelledAt} />
-              </>
-            ) : null}
-          </>
+    <div className="flex flex-col gap-5">
+      <MigrationPlanHero
+        sequenceNumber={plan.sequenceNumber}
+        status={plan.status}
+        createdAt={plan.createdAt}
+        approvedAt={plan.approvedAt}
+        cancelledAt={plan.cancelledAt}
+        rolledBackAt={plan.rolledBackAt}
+        actions={
+          plan.status === "DRAFT" && isTenantAdmin ? (
+            <PlanActions migrationPlanId={plan.id} />
+          ) : undefined
         }
-        actions={<MigrationStatusBadge status={plan.status} />}
       />
 
       <MigrationSummaryCards
@@ -69,12 +60,9 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
 
       {plan.status === "DRAFT" ? (
         <Alert>
-          <AlertDescription className="flex flex-col gap-3">
-            <span>
-              This migration requires Tenant Admin approval before Terraform generation or execution can happen.
-              Approving records who approved it and when.
-            </span>
-            {isTenantAdmin ? <PlanActions migrationPlanId={plan.id} /> : null}
+          <AlertDescription>
+            This migration requires Tenant Admin approval before Terraform generation or execution can happen.
+            Approving records who approved it and when.
           </AlertDescription>
         </Alert>
       ) : null}

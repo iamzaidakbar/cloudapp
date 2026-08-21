@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { AwsConnection } from "@/lib/generated/prisma/client";
 
@@ -42,14 +41,14 @@ export function StepVerify({ connection, onVerified, onEditRole }: StepVerifyPro
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Verify Connection</CardTitle>
-        <CardDescription>
+    <section className="border border-border bg-card">
+      <div className="border-b border-border px-4 py-3 md:px-5">
+        <h2 className="text-sm font-semibold tracking-tight">Verify connection</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           CloudShift-G will assume the role below to confirm access before saving it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+        </p>
+      </div>
+      <div className="flex flex-col gap-4 p-4 md:p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">Role ARN</dt>
           <dd className="truncate font-mono text-xs">{connection.roleArn}</dd>
@@ -81,7 +80,7 @@ export function StepVerify({ connection, onVerified, onEditRole }: StepVerifyPro
             )}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PanelReveal } from "@/components/motion/panel-reveal";
 import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
@@ -103,15 +102,18 @@ export function RollbackPanel({
 
   return (
     <PanelReveal>
-      <Card className="border border-destructive/30 bg-destructive/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TriangleAlert className="size-4 text-destructive" />
+      <section className="border border-destructive/30 bg-destructive/5">
+        <div className="border-b border-destructive/20 px-4 py-3 md:px-5">
+          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+            <TriangleAlert className="size-3.5 text-destructive" />
             Rollback
-          </CardTitle>
-        </CardHeader>
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Permanently destroy provisioned GCP resources
+          </p>
+        </div>
 
-        <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 p-4 md:p-5">
           <p className="text-xs text-muted-foreground">
             Runs a real <code className="font-mono">terraform destroy</code> against your real GCP project — it{" "}
             <span className="font-medium text-destructive">permanently deletes</span> the resources below. This cannot be
@@ -189,12 +191,12 @@ export function RollbackPanel({
               ) : null}
 
               {run.destroyOutput ? (
-                <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.destroyOutput}</pre>
+                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.destroyOutput}</pre>
               ) : null}
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </PanelReveal>
   );
 }

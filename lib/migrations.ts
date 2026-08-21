@@ -98,13 +98,56 @@ export async function getNextMigrationSequenceNumber(tenantId: string): Promise<
 }
 
 export async function listMigrationPlans(tenantId: string, skip: number, take: number) {
-  const [items, total] = await withTenantContext(tenantId, (tx) =>
+  const [items, total, statusGroups, latest] = await withTenantContext(tenantId, (tx) =>
     Promise.all([
-      tx.migrationPlan.findMany({ where: { tenantId }, orderBy: { sequenceNumber: "desc" }, skip, take }),
+      tx.migrationPlan.findMany({
+        where: { tenantId },
+        orderBy: { sequenceNumber: "desc" },
+        skip,
+        take,
+      }),
       tx.migrationPlan.count({ where: { tenantId } }),
+      tx.migrationPlan.groupBy({
+        by: ["status"],
+        where: { tenantId },
+        _count: { _all: true },
+      }),
+      tx.migrationPlan.findFirst({
+        where: { tenantId },
+        orderBy: { sequenceNumber: "desc" },
+        select: {
+          sequenceNumber: true,
+          status: true,
+          resourceCount: true,
+          estimatedMigrationCost: true,
+          costDataAvailable: true,
+        },
+      }),
     ]),
   );
-  return { items: items.map(serializeMigrationPlan), total };
+
+  const countsByStatus = Object.fromEntries(
+    statusGroups.map((row) => [row.status, row._count._all]),
+  ) as Record<string, number>;
+
+  const stats = {
+    total,
+    draft: countsByStatus.DRAFT ?? 0,
+    approved: countsByStatus.APPROVED ?? 0,
+    cancelled: countsByStatus.CANCELLED ?? 0,
+    rolledBack: countsByStatus.ROLLED_BACK ?? 0,
+    latest: latest
+      ? {
+          sequenceNumber: latest.sequenceNumber,
+          status: latest.status,
+          resourceCount: latest.resourceCount,
+          estimatedMigrationCost: decimalToNumber(latest.estimatedMigrationCost),
+          costDataAvailable: latest.costDataAvailable,
+        }
+      : null,
+  };
+
+  return { items: items.map(serializeMigrationPlan), total, stats };
 }
 
 export async function getMigrationPlan(tenantId: string, id: string) {

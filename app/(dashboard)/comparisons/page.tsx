@@ -1,12 +1,16 @@
 import { GitCompare } from "lucide-react";
 import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
-import { getActiveComparisonRun, getLatestSucceededAuditRun, listComparisonRuns } from "@/lib/comparisons";
+import {
+  getActiveComparisonRun,
+  getLatestSucceededAuditRun,
+  listComparisonRuns,
+} from "@/lib/comparisons";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
-import { RunComparisonButton } from "@/components/comparisons/run-comparison-button";
+import { ComparisonsHero } from "@/components/comparisons/comparisons-hero";
+import { ComparisonKpis } from "@/components/comparisons/comparison-kpis";
 import { ComparisonRunsTable } from "@/components/comparisons/comparison-runs-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
-import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
 
 export default async function ComparisonsPage({
@@ -25,27 +29,25 @@ export default async function ComparisonsPage({
   );
   const { page, pageSize, skip, take } = parsePagination(urlSearchParams);
 
-  const { items, total } = await listComparisonRuns(admin.tenantId, skip, take);
+  const { items, total, stats } = await listComparisonRuns(admin.tenantId, skip, take);
   const meta = paginationMeta(page, pageSize, total);
 
   const activeRun = await getActiveComparisonRun(admin.tenantId);
   const successfulAudit = await getLatestSucceededAuditRun(admin.tenantId);
+  const canRun =
+    admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED";
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Comparisons"
-        description={`AWS vs GCP service mapping and cost comparison for ${tenant?.name ?? "your organization"}.`}
-        actions={
-          admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
-            <RunComparisonButton
-              hasActiveRun={Boolean(activeRun)}
-              activeRunStartedAt={activeRun?.startedAt}
-              hasSuccessfulAudit={Boolean(successfulAudit)}
-            />
-          ) : null
-        }
+      <ComparisonsHero
+        tenantName={tenant?.name ?? "your organization"}
+        canRun={canRun}
+        hasActiveRun={Boolean(activeRun)}
+        activeRunStartedAt={activeRun?.startedAt}
+        hasSuccessfulAudit={Boolean(successfulAudit)}
+        totalRuns={total}
       />
+      {total > 0 ? <ComparisonKpis stats={stats} /> : null}
 
       <DataTableShell
         isEmpty={total === 0}

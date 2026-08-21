@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ConnectionSummary } from "@/components/aws/connection-summary";
 import type { Tenant, AwsConnection } from "@/lib/generated/prisma/client";
 
@@ -16,22 +15,22 @@ export function StepComplete({ tenant, connection }: StepCompleteProps) {
   const router = useRouter();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CheckCircle2 className="size-5" />
+    <section className="border border-border bg-card">
+      <div className="border-b border-border px-4 py-3 md:px-5">
+        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+          <CheckCircle2 className="size-4" />
           {tenant.name} is connected
-        </CardTitle>
-        <CardDescription>
+        </h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           CloudShift-G can now audit and compare this AWS account against GCP.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+        </p>
+      </div>
+      <div className="flex flex-col gap-4 p-4 md:p-5">
         <ConnectionSummary connection={connection} />
         <Button className="w-full" onClick={() => router.push("/dashboard")}>
           Go to Dashboard
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

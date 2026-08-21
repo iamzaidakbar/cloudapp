@@ -3,8 +3,8 @@ import { requireTenantScope } from "@/lib/auth/guard";
 import { listJobs, JOB_TYPES, JOB_STATUSES, type JobType, type JobRowStatus } from "@/lib/jobs";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { DataTableShell } from "@/components/shared/data-table-shell";
-import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { JobsHero } from "@/components/jobs/jobs-hero";
 import { JobsFilterBar } from "@/components/jobs/jobs-filter-bar";
 import { JobsTable } from "@/components/jobs/jobs-table";
 
@@ -40,11 +40,7 @@ export default async function JobsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Jobs"
-        description="Every audit, comparison, Terraform, apply, verification, and rollback run for your organization, in one place."
-      />
-
+      <JobsHero totalJobs={total} />
       <JobsFilterBar />
 
       <DataTableShell

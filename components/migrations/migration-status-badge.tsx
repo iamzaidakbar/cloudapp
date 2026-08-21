@@ -21,6 +21,8 @@ export function MigrationStatusBadge({
   status: MigrationPlanStatus;
 }) {
   return (
-    <StatusBadge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</StatusBadge>
+    <StatusBadge tone={STATUS_TONE[status]} uniform>
+      {STATUS_LABEL[status]}
+    </StatusBadge>
   );
 }

@@ -7,7 +7,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CopyButton } from "@/components/copy-button";
 import { roleArnSchema, type RoleArnInput } from "@/lib/validation/aws-connection";
@@ -84,14 +83,14 @@ export function StepAwsRole({ connection, onSaved }: StepAwsRoleProps) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>AWS Role</CardTitle>
-        <CardDescription>
+    <section className="border border-border bg-card">
+      <div className="border-b border-border px-4 py-3 md:px-5">
+        <h2 className="text-sm font-semibold tracking-tight">AWS role</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Create a read-only IAM role in your AWS account that trusts CloudShift-G, then paste its ARN below.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+        </p>
+      </div>
+      <div className="flex flex-col gap-4 p-4 md:p-5">
         {!loadingIdentity && !appIdentity ? (
           <Alert>
             <AlertDescription>
@@ -149,7 +148,7 @@ export function StepAwsRole({ connection, onSaved }: StepAwsRoleProps) {
             )}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

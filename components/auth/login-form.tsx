@@ -8,7 +8,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 
@@ -45,57 +44,55 @@ export function LoginForm() {
   }
 
   return (
-    <Card>
-      <CardContent>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
-          {serverError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{serverError}</AlertDescription>
-            </Alert>
+    <section className="border border-border bg-card p-4 md:p-5">
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+        {serverError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{serverError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="admin@example.com"
+            aria-invalid={Boolean(errors.email)}
+            {...register("email")}
+          />
+          {errors.email ? (
+            <p className="text-xs text-destructive">{errors.email.message}</p>
           ) : null}
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="admin@example.com"
-              aria-invalid={Boolean(errors.email)}
-              {...register("email")}
-            />
-            {errors.email ? (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
-            ) : null}
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            aria-invalid={Boolean(errors.password)}
+            {...register("password")}
+          />
+          {errors.password ? (
+            <p className="text-xs text-destructive">{errors.password.message}</p>
+          ) : null}
+        </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              aria-invalid={Boolean(errors.password)}
-              {...register("password")}
-            />
-            {errors.password ? (
-              <p className="text-xs text-destructive">{errors.password.message}</p>
-            ) : null}
-          </div>
-
-          <Button type="submit" className="mt-1 w-full" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Signing in…
-              </>
-            ) : (
-              "Sign in"
-            )}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        <Button type="submit" className="mt-1 w-full" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Signing in…
+            </>
+          ) : (
+            "Sign in"
+          )}
+        </Button>
+      </form>
+    </section>
   );
 }

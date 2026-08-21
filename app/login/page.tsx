@@ -11,7 +11,7 @@ export default function LoginPage() {
         <ThemeToggle />
       </div>
       <div className="w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="flex size-12 items-center justify-center border border-border bg-card">
             <Cloud className="size-6" />
           </div>

@@ -5,7 +5,6 @@ import { Loader2, Rocket, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PanelReveal } from "@/components/motion/panel-reveal";
 import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
@@ -76,30 +75,33 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
 
   return (
     <PanelReveal>
-      <Card className="border-border bg-muted">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <TriangleAlert className="size-4 text-foreground" />
-              Execute Migration
-            </CardTitle>
-            <Button type="button" onClick={handleExecute} disabled={isStarting || isActive}>
-              {isStarting || isActive ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  {isActive ? "Provisioning…" : "Starting…"}
-                </>
-              ) : (
-                <>
-                  <Rocket className="size-4" />
-                  {run?.status === "SUCCEEDED" ? "Re-run Apply" : "Execute Migration"}
-                </>
-              )}
-            </Button>
+      <section className="border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 md:px-5">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+              <TriangleAlert className="size-3.5 text-foreground" />
+              Execute migration
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Runs a real terraform apply against your GCP project
+            </p>
           </div>
-        </CardHeader>
+          <Button type="button" onClick={handleExecute} disabled={isStarting || isActive}>
+            {isStarting || isActive ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {isActive ? "Provisioning…" : "Starting…"}
+              </>
+            ) : (
+              <>
+                <Rocket className="size-4" />
+                {run?.status === "SUCCEEDED" ? "Re-run Apply" : "Execute Migration"}
+              </>
+            )}
+          </Button>
+        </div>
 
-        <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 p-4 md:p-5">
           <p className="text-xs text-muted-foreground">
             This runs a real <code className="font-mono">terraform apply</code> against your real GCP project — it creates
             actual, billable resources. Nothing is created until you click the button above.
@@ -141,12 +143,12 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
               ) : null}
 
               {run.applyOutput ? (
-                <pre className="max-h-96 overflow-auto rounded-none border border-border bg-muted/40 p-3 font-mono text-xs">{run.applyOutput}</pre>
+                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.applyOutput}</pre>
               ) : null}
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </PanelReveal>
   );
 }

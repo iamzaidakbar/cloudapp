@@ -5,9 +5,10 @@ import { listMigrationPlans, getSelectableComparisonItems } from "@/lib/migratio
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { buttonVariants } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { MigrationsHero } from "@/components/migrations/migrations-hero";
+import { MigrationKpis } from "@/components/migrations/migration-kpis";
 import { MigrationRunsTable } from "@/components/migrations/migration-runs-table";
 import { DataTableShell } from "@/components/shared/data-table-shell";
-import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/empty-state";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ export default async function MigrationsPage({
   );
   const { page, pageSize, skip, take } = parsePagination(urlSearchParams);
 
-  const { items, total } = await listMigrationPlans(admin.tenantId, skip, take);
+  const { items, total, stats } = await listMigrationPlans(admin.tenantId, skip, take);
   const meta = paginationMeta(page, pageSize, total);
 
   const selectable = await getSelectableComparisonItems(admin.tenantId);
@@ -45,24 +46,26 @@ export default async function MigrationsPage({
     </Link>
   );
 
+  const actions =
+    admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED"
+      ? canCreate
+        ? newMigrationLink
+        : (
+            <Tooltip>
+              <TooltipTrigger render={newMigrationLink} />
+              <TooltipContent>Run a successful AWS to GCP comparison first</TooltipContent>
+            </Tooltip>
+          )
+      : null;
+
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="Migrations"
-        description={`Plan and approve AWS to GCP migrations for ${tenant?.name ?? "your organization"}.`}
-        actions={
-          admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED" ? (
-            canCreate ? (
-              newMigrationLink
-            ) : (
-              <Tooltip>
-                <TooltipTrigger render={newMigrationLink} />
-                <TooltipContent>Run a successful AWS to GCP comparison first</TooltipContent>
-              </Tooltip>
-            )
-          ) : null
-        }
+      <MigrationsHero
+        tenantName={tenant?.name ?? "your organization"}
+        totalPlans={total}
+        actions={actions}
       />
+      {total > 0 ? <MigrationKpis stats={stats} /> : null}
 
       <DataTableShell
         isEmpty={total === 0}
