@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, CloudOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmptyState } from "@/components/empty-state";
 import { ConnectionStatusBadge } from "@/components/aws/connection-status-badge";
 import { ConnectionSummary } from "@/components/aws/connection-summary";
-import { CloudOff } from "lucide-react";
 import type { Tenant, AwsConnection } from "@/lib/generated/prisma/client";
 
 type AwsConnectionPanelProps = {
@@ -26,6 +26,7 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [roleArnInput, setRoleArnInput] = useState(connection?.roleArn ?? "");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   if (!tenant) {
     return (
@@ -37,9 +38,23 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
     );
   }
 
+  function applyVerifiedConnection(next: AwsConnection, verified: boolean) {
+    setConnection(next);
+    if (verified) {
+      setActionError(null);
+      setActionSuccess("AWS connection verified successfully. CloudShift-G can assume your role.");
+      toast.success("AWS connection verified");
+      router.refresh();
+      return;
+    }
+    setActionSuccess(null);
+    setActionError(next.lastVerificationError ?? "Verification failed.");
+  }
+
   async function verify() {
     setIsVerifying(true);
     setActionError(null);
+    setActionSuccess(null);
     try {
       const response = await fetch("/api/aws/connection/verify", { method: "POST" });
       const body = await response.json();
@@ -47,10 +62,7 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
         setActionError(body.error ?? "Something went wrong. Please try again.");
         return;
       }
-      setConnection(body.data.connection);
-      if (!body.data.verified) {
-        setActionError(body.data.connection.lastVerificationError ?? "Verification failed.");
-      }
+      applyVerifiedConnection(body.data.connection, Boolean(body.data.verified));
     } finally {
       setIsVerifying(false);
     }
@@ -59,6 +71,7 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
   async function saveRoleArn() {
     setIsVerifying(true);
     setActionError(null);
+    setActionSuccess(null);
     try {
       const patchResponse = await fetch("/api/aws/connection", {
         method: "PATCH",
@@ -76,10 +89,9 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
       const verifyResponse = await fetch("/api/aws/connection/verify", { method: "POST" });
       const verifyBody = await verifyResponse.json();
       if (verifyResponse.ok && verifyBody.success) {
-        setConnection(verifyBody.data.connection);
-        if (!verifyBody.data.verified) {
-          setActionError(verifyBody.data.connection.lastVerificationError ?? "Verification failed.");
-        }
+        applyVerifiedConnection(verifyBody.data.connection, Boolean(verifyBody.data.verified));
+      } else {
+        setActionError(verifyBody.error ?? "Something went wrong. Please try again.");
       }
     } finally {
       setIsVerifying(false);
@@ -110,6 +122,14 @@ export function AwsConnectionPanel({ initialTenant, initialConnection }: AwsConn
         <ConnectionStatusBadge status={connection.status} />
       </div>
       <div className="flex flex-col gap-4 p-4 md:p-5">
+        {actionSuccess ? (
+          <Alert variant="success">
+            <CheckCircle2 />
+            <AlertTitle>Connection verified</AlertTitle>
+            <AlertDescription>{actionSuccess}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {actionError ? (
           <Alert variant="destructive">
             <AlertTitle>{connection.status === "FAILED" ? "Verification failed" : "Error"}</AlertTitle>

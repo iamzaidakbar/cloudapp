@@ -90,9 +90,20 @@ After first successful migrate, set `migrate.enabled: false` in values-staging (
 
 ---
 
-## D4 — GitHub Actions secrets
+## D4 — GitHub Actions (SKIPPED)
 
-Set these on the repo (Settings → Secrets → Actions). Values from this project:
+**Skipped** (GitHub account billing lock / not required for the primary GKE goal).
+
+Deploy with Helm from a laptop instead:
+
+```bash
+# see D3 — Helm install staging / development
+```
+
+WIF + workflow files remain in the repo for later when Actions is usable.
+Secrets table kept below for that day — do not block Phase E on CI.
+
+<details><summary>GitHub secrets (when unblocking Actions later)</summary>
 
 | Secret | Value |
 |--------|--------|
@@ -105,34 +116,18 @@ Set these on the repo (Settings → Secrets → Actions). Values from this proje
 | `WORKER_GSA_EMAIL` | `cloudshiftg-worker@project-7fe2c753-1df6-4821-bf9.iam.gserviceaccount.com` |
 | `TERRAFORM_JOB_GSA_EMAIL` | `cloudshiftg-tf-job@project-7fe2c753-1df6-4821-bf9.iam.gserviceaccount.com` |
 
-Or refresh from Terraform:
-
-```bash
-cd infra
-terraform output -raw github_workload_identity_provider
-terraform output -raw github_deploy_sa_email
-```
-
-Workflow: [`.github/workflows/deploy-gke.yml`](../.github/workflows/deploy-gke.yml)
-
-- Region: `us-east1`
-- Push to `main` → deploy **staging** only
-- `workflow_dispatch` → development / staging / production
-- Migrate: in-cluster Helm Job only (no runner `prisma migrate deploy`)
-
-- [ ] Secrets configured in GitHub
-- [ ] At least one successful Actions deploy to staging **or** Helm path proven + secrets documented (if GH secrets not set yet)
+</details>
 
 ---
 
 ## Definition of done
 
-- [ ] Three namespaces exist
-- [ ] Staging app healthy
-- [ ] CI workflow corrected (region, values, no runner migrate, staging default)
-- [ ] WIF deploy SA ready for Actions
+- [x] Three namespaces exist
+- [x] Staging app healthy (web; worker may be 0 under quota)
+- [x] CI workflow corrected in repo (Actions run **skipped**)
+- [x] Helm deploy path proven without Actions
 
-**Handoff:** Phase E next (logging / monitoring / alerts).
+**Handoff:** Phase E next (logging / monitoring / alerts) — see [docs/PHASE_E_CHECKLIST.md](PHASE_E_CHECKLIST.md).
 
 ---
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { AwsConnection } from "@/lib/generated/prisma/client";
@@ -15,10 +16,12 @@ type StepVerifyProps = {
 export function StepVerify({ connection, onVerified, onEditRole }: StepVerifyProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(connection.lastVerificationError);
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleVerify() {
     setIsVerifying(true);
     setError(null);
+    setSuccess(null);
 
     try {
       const response = await fetch("/api/aws/connection/verify", { method: "POST" });
@@ -31,6 +34,8 @@ export function StepVerify({ connection, onVerified, onEditRole }: StepVerifyPro
 
       const updated = body.data.connection as AwsConnection;
       if (body.data.verified) {
+        setSuccess("AWS connection verified successfully.");
+        toast.success("AWS connection verified");
         onVerified(updated);
       } else {
         setError(updated.lastVerificationError ?? "Verification failed.");
@@ -55,6 +60,14 @@ export function StepVerify({ connection, onVerified, onEditRole }: StepVerifyPro
           <dt className="text-muted-foreground">External ID</dt>
           <dd className="truncate font-mono text-xs">{connection.externalId}</dd>
         </dl>
+
+        {success ? (
+          <Alert variant="success">
+            <CheckCircle2 />
+            <AlertTitle>Connection verified</AlertTitle>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        ) : null}
 
         {error ? (
           <Alert variant="destructive">

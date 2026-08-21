@@ -37,7 +37,7 @@ export type RunStatus = (typeof RUN_STATUSES)[number];
 export const RUN_STATUS_CLASS: Record<string, string> = {
   QUEUED: "border-border bg-muted text-muted-foreground",
   RUNNING: "border-foreground/30 bg-foreground/10 text-foreground",
-  SUCCEEDED: "border-foreground/40 bg-foreground text-background",
+  SUCCEEDED: "border-success/40 bg-success/10 text-success",
   FAILED: "border-destructive/40 bg-destructive/10 text-destructive",
   // Not part of RunStatus itself — included for JobStatus/JobRowStatus
   // callers (job-status-badge.tsx, audit-status-badge.tsx), which style it

@@ -20,6 +20,8 @@ export function Toaster({ ...props }: ToasterProps) {
           cancelButton:
             "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
           error: "group-[.toast]:border-destructive group-[.toast]:text-destructive",
+          success:
+            "group-[.toast]:border-success/40 group-[.toast]:bg-success/5 group-[.toast]:text-success",
         },
       }}
       {...props}

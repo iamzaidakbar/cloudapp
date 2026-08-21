@@ -20,7 +20,7 @@ const SERVICE_LABEL: Partial<Record<AwsServiceType, string>> = {
 };
 
 const STATUS_CLASS: Record<VerificationStatus, string> = {
-  HEALTHY: "border-foreground/40 bg-foreground text-background",
+  HEALTHY: "border-success/40 bg-success/10 text-success",
   UNHEALTHY: "border-destructive/40 bg-destructive/10 text-destructive",
   UNAVAILABLE: "border-border bg-muted text-muted-foreground",
 };

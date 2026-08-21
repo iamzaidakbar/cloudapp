@@ -17,7 +17,7 @@ export function StepComplete({ tenant, connection }: StepCompleteProps) {
   return (
     <section className="border border-border bg-card">
       <div className="border-b border-border px-4 py-3 md:px-5">
-        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+        <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-success">
           <CheckCircle2 className="size-4" />
           {tenant.name} is connected
         </h2>
