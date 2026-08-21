@@ -6,8 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PanelReveal } from "@/components/motion/panel-reveal";
+import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { cn } from "@/lib/utils";
+import { RUN_STATUS_CLASS } from "@/lib/run-status";
 import type { AwsServiceType, RollbackRunStatus } from "@/lib/generated/prisma/client";
 
 const SERVICE_LABEL: Partial<Record<AwsServiceType, string>> = {
@@ -19,13 +23,6 @@ const SERVICE_LABEL: Partial<Record<AwsServiceType, string>> = {
 
 const TERMINAL_STATUSES = new Set<RollbackRunStatus>(["SUCCEEDED", "FAILED"]);
 const POLL_INTERVAL_MS = 3000;
-
-const STATUS_CLASS: Record<RollbackRunStatus, string> = {
-  QUEUED: "bg-muted text-muted-foreground",
-  RUNNING: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  SUCCEEDED: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-  FAILED: "bg-destructive/15 text-destructive",
-};
 
 type ProvisionedResource = { id: string; awsService: AwsServiceType; awsResourceId: string; awsResourceName: string | null };
 
@@ -105,91 +102,99 @@ export function RollbackPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-      <div className="flex items-center gap-2">
-        <TriangleAlert className="size-4 text-destructive" />
-        <h2 className="text-sm font-semibold text-foreground">Rollback</h2>
-      </div>
+    <PanelReveal>
+      <Card className="border border-destructive/30 bg-destructive/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TriangleAlert className="size-4 text-destructive" />
+            Rollback
+          </CardTitle>
+        </CardHeader>
 
-      <p className="text-xs text-muted-foreground">
-        Runs a real <code className="font-mono">terraform destroy</code> against your real GCP project — it{" "}
-        <span className="font-medium text-destructive">permanently deletes</span> the resources below. This cannot be
-        undone.
-      </p>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Runs a real <code className="font-mono">terraform destroy</code> against your real GCP project — it{" "}
+            <span className="font-medium text-destructive">permanently deletes</span> the resources below. This cannot be
+            undone.
+          </p>
 
-      <ul className="flex flex-col gap-1 text-xs">
-        {provisionedResources.map((resource) => (
-          <li key={resource.id} className="font-mono text-muted-foreground">
-            {SERVICE_LABEL[resource.awsService] ?? resource.awsService} — {resource.awsResourceName ?? resource.awsResourceId}
-          </li>
-        ))}
-      </ul>
+          <ul className="flex flex-col gap-1 text-xs">
+            {provisionedResources.map((resource) => (
+              <li key={resource.id} className="font-mono text-muted-foreground">
+                {SERVICE_LABEL[resource.awsService] ?? resource.awsService} — {resource.awsResourceName ?? resource.awsResourceId}
+              </li>
+            ))}
+          </ul>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={confirmText}
-          onChange={(e) => setConfirmText(e.target.value)}
-          placeholder={`Type ${sequenceNumber} to confirm`}
-          disabled={isStarting || isActive}
-          className="max-w-48"
-        />
-        <Button
-          type="button"
-          variant="destructive"
-          onClick={handleDestroy}
-          disabled={!confirmed || isStarting || isActive}
-        >
-          {isStarting || isActive ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              {isActive ? "Destroying…" : "Starting…"}
-            </>
-          ) : (
-            <>
-              <Trash2 className="size-4" />
-              Destroy Resources
-            </>
-          )}
-        </Button>
-      </div>
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {run ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Rollback #{run.version}</span>
-            <Badge variant="outline" className={cn("border-transparent", STATUS_CLASS[run.status])}>
-              {run.status}
-            </Badge>
-            {run.finishedAt ? (
-              <span>
-                · Finished <FormattedDateTime value={run.finishedAt} />
-              </span>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={`Type ${sequenceNumber} to confirm`}
+              disabled={isStarting || isActive}
+              className="max-w-48"
+            />
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDestroy}
+              disabled={!confirmed || isStarting || isActive}
+            >
+              {isStarting || isActive ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {isActive ? "Destroying…" : "Starting…"}
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-4" />
+                  Destroy Resources
+                </>
+              )}
+            </Button>
           </div>
 
-          {run.errorMessage ? (
+          {error ? (
             <Alert variant="destructive">
-              <AlertDescription>{run.errorMessage}</AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
 
-          {run.status === "SUCCEEDED" ? (
-            <p className="text-sm text-muted-foreground">
-              {run.resourcesDestroyed ?? 0} resource{run.resourcesDestroyed === 1 ? "" : "s"} destroyed for real.
-            </p>
-          ) : null}
+          {run ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Rollback #{run.version}</span>
+                <StatusTransition statusKey={run.status}>
+                  <Badge variant="outline" className={cn("border-transparent", RUN_STATUS_CLASS[run.status])}>
+                    {run.status}
+                  </Badge>
+                </StatusTransition>
+                {run.finishedAt ? (
+                  <span>
+                    · Finished <FormattedDateTime value={run.finishedAt} />
+                  </span>
+                ) : null}
+              </div>
 
-          {run.destroyOutput ? (
-            <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.destroyOutput}</pre>
+              {run.errorMessage ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{run.errorMessage}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              {run.status === "SUCCEEDED" ? (
+                <p className="text-sm text-muted-foreground">
+                  {run.resourcesDestroyed ?? 0} resource{run.resourcesDestroyed === 1 ? "" : "s"} destroyed for real.
+                </p>
+              ) : null}
+
+              {run.destroyOutput ? (
+                <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs">{run.destroyOutput}</pre>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-      ) : null}
-    </div>
+        </CardContent>
+      </Card>
+    </PanelReveal>
   );
 }

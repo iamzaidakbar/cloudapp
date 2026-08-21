@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PanelReveal } from "@/components/motion/panel-reveal";
+import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { cn } from "@/lib/utils";
 import type { AwsServiceType, VerificationStatus } from "@/lib/generated/prisma/client";
@@ -77,82 +80,90 @@ export function VerificationPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="size-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold text-foreground">Verification</h2>
-        </div>
-        <Button type="button" variant="outline" onClick={handleVerify} disabled={isRunning}>
-          {isRunning ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Checking…
-            </>
-          ) : (
-            <>
-              <ShieldCheck className="size-4" />
-              {run ? "Re-run Verification" : "Run Verification"}
-            </>
-          )}
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        Queries each provisioned resource&apos;s real, live status in GCP right now — confirms it&apos;s actually
-        healthy, not just that it was created successfully earlier.
-      </p>
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {run ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Verification #{run.version}</span>
-            <span>
-              · Checked <FormattedDateTime value={run.checkedAt} />
-            </span>
+    <PanelReveal>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-muted-foreground" />
+              Verification
+            </CardTitle>
+            <Button type="button" variant="outline" onClick={handleVerify} disabled={isRunning}>
+              {isRunning ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Checking…
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="size-4" />
+                  {run ? "Re-run Verification" : "Run Verification"}
+                </>
+              )}
+            </Button>
           </div>
+        </CardHeader>
 
-          <div className="overflow-x-auto rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Detail</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {run.checks.map((check) => (
-                  <TableRow key={check.id}>
-                    <TableCell className="whitespace-nowrap">
-                      <span className="text-foreground">
-                        {SERVICE_LABEL[check.migrationResource.awsService] ?? check.migrationResource.awsService}
-                      </span>{" "}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {check.migrationResource.awsResourceName ?? check.migrationResource.awsResourceId}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("border-transparent", STATUS_CLASS[check.status])}>
-                        {STATUS_LABEL[check.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-96 truncate text-xs text-muted-foreground" title={check.detail ?? undefined}>
-                      {check.detail ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      ) : null}
-    </div>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Queries each provisioned resource&apos;s real, live status in GCP right now — confirms it&apos;s actually
+            healthy, not just that it was created successfully earlier.
+          </p>
+
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {run ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Verification #{run.version}</span>
+                <span>
+                  · Checked <FormattedDateTime value={run.checkedAt} />
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resource</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Detail</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {run.checks.map((check) => (
+                      <TableRow key={check.id}>
+                        <TableCell className="whitespace-nowrap">
+                          <span className="text-foreground">
+                            {SERVICE_LABEL[check.migrationResource.awsService] ?? check.migrationResource.awsService}
+                          </span>{" "}
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {check.migrationResource.awsResourceName ?? check.migrationResource.awsResourceId}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <StatusTransition statusKey={check.status}>
+                            <Badge variant="outline" className={cn("border-transparent", STATUS_CLASS[check.status])}>
+                              {STATUS_LABEL[check.status]}
+                            </Badge>
+                          </StatusTransition>
+                        </TableCell>
+                        <TableCell className="max-w-96 truncate text-xs text-muted-foreground" title={check.detail ?? undefined}>
+                          {check.detail ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </PanelReveal>
   );
 }

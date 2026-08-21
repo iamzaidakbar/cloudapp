@@ -1,4 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
@@ -29,7 +30,7 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
   const anyProvisioned = resources.some((r) => r.provisionedAt);
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
+    <div className="overflow-x-auto rounded-lg bg-glass-strong supports-backdrop-filter:bg-glass supports-backdrop-filter:backdrop-blur-md ring-1 ring-glass-border shadow-glass">
       <Table>
         <TableHeader>
           <TableRow>
@@ -42,35 +43,47 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
           </TableRow>
         </TableHeader>
         <TableBody>
-          {resources.map((resource) => (
+          {resources.map((resource, index) => (
             <TableRow key={resource.id}>
-              <TableCell className="whitespace-nowrap">{SERVICE_LABEL[resource.awsService] ?? resource.awsService}</TableCell>
-              <TableCell className="max-w-48">
-                <span className="font-mono text-xs">{resource.awsResourceName ?? resource.awsResourceId}</span>
-                {resource.awsSizeLabel ? <p className="text-xs text-muted-foreground">{resource.awsSizeLabel}</p> : null}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">{resource.region}</TableCell>
               <TableCell className="whitespace-nowrap">
-                <p>{resource.gcpService}</p>
-                {resource.gcpSizeLabel ? <p className="font-mono text-xs text-muted-foreground">{resource.gcpSizeLabel}</p> : null}
+                <StaggerItem index={index}>{SERVICE_LABEL[resource.awsService] ?? resource.awsService}</StaggerItem>
+              </TableCell>
+              <TableCell className="max-w-48">
+                <StaggerItem index={index}>
+                  <span className="font-mono text-xs">{resource.awsResourceName ?? resource.awsResourceId}</span>
+                  {resource.awsSizeLabel ? <p className="text-xs text-muted-foreground">{resource.awsSizeLabel}</p> : null}
+                </StaggerItem>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                <StaggerItem index={index}>{resource.region}</StaggerItem>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <StaggerItem index={index}>
+                  <p>{resource.gcpService}</p>
+                  {resource.gcpSizeLabel ? <p className="font-mono text-xs text-muted-foreground">{resource.gcpSizeLabel}</p> : null}
+                </StaggerItem>
               </TableCell>
               <TableCell>
-                {resource.estimatedMigrationCost !== null ? formatCurrency(resource.estimatedMigrationCost) : "N/A"}
+                <StaggerItem index={index}>
+                  {resource.estimatedMigrationCost !== null ? formatCurrency(resource.estimatedMigrationCost) : "N/A"}
+                </StaggerItem>
               </TableCell>
               {anyProvisioned ? (
                 <TableCell className="max-w-64">
-                  {resource.provisionedAt ? (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="truncate font-mono text-xs" title={resource.gcpResourceSelfLink ?? undefined}>
-                        {resource.gcpResourceSelfLink}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        <FormattedDateTime value={resource.provisionedAt} />
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
+                  <StaggerItem index={index}>
+                    {resource.provisionedAt ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="truncate font-mono text-xs" title={resource.gcpResourceSelfLink ?? undefined}>
+                          {resource.gcpResourceSelfLink}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <FormattedDateTime value={resource.provisionedAt} />
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </StaggerItem>
                 </TableCell>
               ) : null}
             </TableRow>
