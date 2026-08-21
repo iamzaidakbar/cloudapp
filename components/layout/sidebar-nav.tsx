@@ -31,8 +31,8 @@ function NavLink({
       className={cn(
         "flex items-center gap-2.5 px-2.5 py-2 text-sm transition-colors",
         isActive
-          ? "border border-border bg-card font-semibold text-foreground"
-          : "border border-transparent font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+          ? "border border-sidebar-border bg-card font-semibold text-foreground"
+          : "border border-transparent font-medium text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
       )}
     >
       <Icon className="size-4 shrink-0" />

@@ -31,11 +31,11 @@ export function MobileSidebar() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="flex w-72 flex-col gap-0 bg-background p-0"
+        className="flex w-72 flex-col gap-0 bg-sidebar p-0 text-sidebar-foreground"
       >
         <SheetHeader className="space-y-0 p-3 text-left sm:p-4">
           <SheetTitle className="sr-only">{APP_NAME}</SheetTitle>
-          <section className="border border-border bg-card px-4 py-3">
+          <section className="border border-sidebar-border bg-card px-4 py-3">
             <AppBrand onNavigate={() => setOpen(false)} />
           </section>
         </SheetHeader>
@@ -44,7 +44,7 @@ export function MobileSidebar() {
           <div className="flex-1 overflow-y-auto py-1">
             <SidebarNav onNavigate={() => setOpen(false)} />
           </div>
-          <div className="shrink-0 border-t border-border pt-3">
+          <div className="shrink-0 border-t border-sidebar-border pt-3">
             <SidebarSettingsLink onNavigate={() => setOpen(false)} />
           </div>
         </div>
