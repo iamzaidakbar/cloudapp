@@ -7,10 +7,12 @@ import { getActiveApplyRun, getLatestApplyRun, createApplyRun } from "@/lib/appl
 import { runApply } from "@/lib/terraform/run-apply";
 import { reconcileStaleApplyRuns } from "@/lib/terraform/reconcile";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -47,6 +49,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     after(() =>
       runApply(applyRun.id, tenant.id).catch((error) => console.error("Apply run failed unexpectedly:", error)),
     );
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "MIGRATION_APPLIED",
+      targetType: "MigrationPlan",
+      targetId: id,
+    });
 
     return apiSuccess({ applyRun }, 202);
   } catch (error) {

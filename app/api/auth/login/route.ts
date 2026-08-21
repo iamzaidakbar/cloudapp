@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import { verifyPassword } from "@/lib/auth/password";
 import { loginSchema } from "@/lib/validation/auth";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction, getRequestIp } from "@/lib/admin-action-log";
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -19,15 +20,18 @@ export async function POST(request: NextRequest) {
   }
 
   const { email, password } = parsed.data;
+  const ipAddress = getRequestIp(request);
 
   try {
     const admin = await prisma.admin.findUnique({ where: { email } });
     if (!admin) {
+      await logAdminAction({ adminId: null, adminEmail: email, action: "LOGIN_FAILED", ipAddress });
       return apiError("Invalid email or password", 401);
     }
 
     const isValid = await verifyPassword(password, admin.passwordHash);
     if (!isValid) {
+      await logAdminAction({ adminId: null, adminEmail: email, action: "LOGIN_FAILED", ipAddress });
       return apiError("Invalid email or password", 401);
     }
 
@@ -40,6 +44,8 @@ export async function POST(request: NextRequest) {
       where: { id: admin.id },
       data: { lastLoginAt: new Date() },
     });
+
+    await logAdminAction({ adminId: admin.id, adminEmail: admin.email, action: "LOGIN_SUCCEEDED", ipAddress });
 
     return apiSuccess({
       admin: { id: admin.id, email: admin.email, name: admin.name },

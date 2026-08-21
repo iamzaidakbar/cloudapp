@@ -2,10 +2,12 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { cancelMigrationPlan, getMigrationPlan } from "@/lib/migrations";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -23,6 +25,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
 
     const migrationPlan = await getMigrationPlan(tenant.id, id);
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "MIGRATION_CANCELLED",
+      targetType: "MigrationPlan",
+      targetId: id,
+    });
+
     return apiSuccess({ migrationPlan });
   } catch (error) {
     console.error("Cancelling migration plan failed:", error);

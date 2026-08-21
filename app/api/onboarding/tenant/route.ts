@@ -5,10 +5,12 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { generateExternalId } from "@/lib/aws/external-id";
 import { tenantSchema } from "@/lib/validation/onboarding";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -38,6 +40,15 @@ export async function POST(request: NextRequest) {
         data: { tenantId: tenant.id, externalId: generateExternalId() },
       });
       return { tenant, connection };
+    });
+
+    await logAdminAction({
+      tenantId: result.tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "TENANT_CREATED",
+      targetType: "Tenant",
+      targetId: result.tenant.id,
     });
 
     return apiSuccess(result, 201);

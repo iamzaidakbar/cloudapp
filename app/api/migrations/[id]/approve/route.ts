@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
 import { approveMigrationPlan, getMigrationPlan } from "@/lib/migrations";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let admin;
@@ -24,6 +25,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
 
     const migrationPlan = await getMigrationPlan(tenant.id, id);
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "MIGRATION_APPROVED",
+      targetType: "MigrationPlan",
+      targetId: id,
+    });
+
     return apiSuccess({ migrationPlan });
   } catch (error) {
     console.error("Approving migration plan failed:", error);

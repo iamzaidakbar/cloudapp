@@ -5,6 +5,7 @@ import { withTenantContext } from "@/lib/db/with-tenant";
 import { getAppAwsIdentity } from "@/lib/aws/sts";
 import { roleArnSchema } from "@/lib/validation/aws-connection";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function GET() {
   try {
@@ -28,8 +29,9 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -64,6 +66,16 @@ export async function PATCH(request: NextRequest) {
         },
       }),
     );
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "AWS_CONNECTION_UPDATED",
+      targetType: "AwsConnection",
+      targetId: connection.id,
+      detail: { roleArn: parsed.data.roleArn },
+    });
 
     return apiSuccess({ connection });
   } catch (error) {

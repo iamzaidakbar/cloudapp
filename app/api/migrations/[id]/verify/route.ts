@@ -3,10 +3,12 @@ import { getTenantWithConnection } from "@/lib/tenant";
 import { getMigrationPlan } from "@/lib/migrations";
 import { createVerificationRun, getLatestVerificationRun } from "@/lib/verification-runs";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -29,6 +31,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
 
     const verificationRun = await createVerificationRun(tenant.id, id);
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "VERIFICATION_RUN",
+      targetType: "MigrationPlan",
+      targetId: id,
+    });
+
     return apiSuccess({ verificationRun });
   } catch (error) {
     console.error("Running verification failed:", error);

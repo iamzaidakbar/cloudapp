@@ -567,3 +567,46 @@ model RollbackRun {
   @@index([tenantId, status])
   @@map("rollback_runs")
 }
+
+enum AdminActionType {
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGOUT
+  TENANT_CREATED
+  AWS_CONNECTION_UPDATED
+  AWS_CONNECTION_VERIFIED
+  AUDIT_STARTED
+  COMPARISON_STARTED
+  MIGRATION_PLAN_CREATED
+  MIGRATION_APPROVED
+  MIGRATION_CANCELLED
+  TERRAFORM_GENERATED
+  MIGRATION_APPLIED
+  VERIFICATION_RUN
+  MIGRATION_ROLLED_BACK
+}
+
+// Deliberately NOT tenant-scoped / NOT covered by row-level security — same
+// treatment as PricingCache (see lib/pricing/cache.ts's own comment). Admin
+// accounts have no tenantId (this app is Admin-only, not multi-tenant-per-
+// role), and the very first action ever logged — an admin's first login —
+// necessarily happens before any Tenant row exists. An RLS policy keyed on
+// tenantId would make that row permanently invisible through the normal app
+// connection (NULL never satisfies tenantId = current_setting(...)).
+// tenantId is still stored, nullable, for context once a tenant exists.
+model AdminActionLog {
+  id         String           @id @default(cuid())
+  tenantId   String?
+  adminId    String? // null for a failed login — no authenticated admin yet
+  adminEmail String // denormalized snapshot: survives the admin record changing, captures the attempted email even on a failed login
+  action     AdminActionType
+  targetType String? // e.g. "MigrationPlan" — plain text, not a relation
+  targetId   String?
+  detail     Json? // small, action-specific context — never secrets (externalId, passwords)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([action])
+  @@map("admin_action_logs")
+}

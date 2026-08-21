@@ -8,10 +8,12 @@ import { runAudit } from "@/lib/aws/audit/run-audit";
 import { isAwsConfigured } from "@/lib/aws/is-configured";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST() {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -36,6 +38,15 @@ export async function POST() {
     const auditRun = await createAuditRun(tenant.id, dataSource);
 
     after(() => runAudit(auditRun.id, tenant.id).catch((error) => console.error("Audit run failed unexpectedly:", error)));
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "AUDIT_STARTED",
+      targetType: "AuditRun",
+      targetId: auditRun.id,
+    });
 
     return apiSuccess({ auditRun }, 202);
   } catch (error) {

@@ -7,10 +7,12 @@ import { runRollback } from "@/lib/terraform/run-rollback";
 import { reconcileStaleRollbackRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -57,6 +59,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     after(() =>
       runRollback(rollbackRun.id, tenant.id).catch((error) => console.error("Rollback run failed unexpectedly:", error)),
     );
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "MIGRATION_ROLLED_BACK",
+      targetType: "MigrationPlan",
+      targetId: id,
+      detail: { confirmSequenceNumber },
+    });
 
     return apiSuccess({ rollbackRun }, 202);
   } catch (error) {

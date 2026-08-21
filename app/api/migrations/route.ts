@@ -5,10 +5,12 @@ import { createMigrationPlan, getSelectableComparisonItems, listMigrationPlans }
 import { createMigrationPlanSchema } from "@/lib/validation/migration";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(request: NextRequest) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -37,6 +39,16 @@ export async function POST(request: NextRequest) {
     }
 
     const plan = await createMigrationPlan(tenant.id, selectable.comparisonRunId, items);
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "MIGRATION_PLAN_CREATED",
+      targetType: "MigrationPlan",
+      targetId: plan.id,
+      detail: { sequenceNumber: plan.sequenceNumber, resourceCount: plan.resourceCount },
+    });
 
     return apiSuccess({ migrationPlan: plan }, 201);
   } catch (error) {

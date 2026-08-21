@@ -3,10 +3,12 @@ import { getTenantWithConnection } from "@/lib/tenant";
 import { withTenantContext } from "@/lib/db/with-tenant";
 import { verifyAwsConnection } from "@/lib/aws/verify-connection";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST() {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -43,6 +45,16 @@ export async function POST() {
         }),
       );
 
+      await logAdminAction({
+        tenantId: tenant.id,
+        adminId: admin.id,
+        adminEmail: admin.email,
+        action: "AWS_CONNECTION_VERIFIED",
+        targetType: "AwsConnection",
+        targetId: connection.id,
+        detail: { status: "CONNECTED", awsAccountId: result.accountId },
+      });
+
       return apiSuccess({ connection: updated, verified: true });
     } catch (verifyError) {
       const message =
@@ -58,6 +70,16 @@ export async function POST() {
           },
         }),
       );
+
+      await logAdminAction({
+        tenantId: tenant.id,
+        adminId: admin.id,
+        adminEmail: admin.email,
+        action: "AWS_CONNECTION_VERIFIED",
+        targetType: "AwsConnection",
+        targetId: connection.id,
+        detail: { status: "FAILED", error: message.slice(0, 300) },
+      });
 
       return apiSuccess({ connection: updated, verified: false });
     }

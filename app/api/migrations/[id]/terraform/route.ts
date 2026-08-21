@@ -8,10 +8,12 @@ import { runTerraformCli } from "@/lib/terraform/run-terraform";
 import { reconcileStaleTerraformRuns } from "@/lib/terraform/reconcile";
 import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -51,6 +53,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         console.error("Terraform run failed unexpectedly:", error),
       ),
     );
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "TERRAFORM_GENERATED",
+      targetType: "MigrationPlan",
+      targetId: id,
+    });
 
     return apiSuccess({ terraformRun }, 202);
   } catch (error) {

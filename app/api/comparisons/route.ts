@@ -16,10 +16,12 @@ import { COMPARABLE_SERVICE_TYPES } from "@/lib/pricing/types";
 import { withTenantContext } from "@/lib/db/with-tenant";
 import { parsePagination, paginationMeta } from "@/lib/api/pagination";
 import { apiError, apiSuccess } from "@/lib/api/response";
+import { logAdminAction } from "@/lib/admin-action-log";
 
 export async function POST() {
+  let admin;
   try {
-    await requireAdmin();
+    admin = await requireAdmin();
   } catch {
     return apiError("Unauthorized", 401);
   }
@@ -63,6 +65,15 @@ export async function POST() {
         console.error("Comparison run failed unexpectedly:", error),
       ),
     );
+
+    await logAdminAction({
+      tenantId: tenant.id,
+      adminId: admin.id,
+      adminEmail: admin.email,
+      action: "COMPARISON_STARTED",
+      targetType: "ComparisonRun",
+      targetId: comparisonRun.id,
+    });
 
     return apiSuccess({ comparisonRun }, 202);
   } catch (error) {
