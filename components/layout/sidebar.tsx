@@ -11,7 +11,7 @@ type SidebarProps = {
 
 export function Sidebar({ admin }: SidebarProps) {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r bg-background md:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-glass-border bg-glass-subtle supports-backdrop-filter:backdrop-blur-xl md:flex">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Cloud className="size-5 text-primary" />

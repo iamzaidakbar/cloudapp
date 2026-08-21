@@ -9,6 +9,8 @@ import { AuditSummaryCards } from "@/components/audits/audit-summary-cards";
 import { AuditServiceStatusList, type ServiceStatusRow } from "@/components/audits/audit-service-status-list";
 import { AuditFindingsPanel } from "@/components/audits/audit-findings-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { StatusTransition } from "@/components/motion/status-transition";
+import { PanelReveal } from "@/components/motion/panel-reveal";
 import type { SerializedAuditRun } from "@/lib/audits";
 import type { JobStatus, VerificationSource } from "@/lib/generated/prisma/client";
 
@@ -55,7 +57,9 @@ export function AuditReportView({ initialAuditRun }: { initialAuditRun: AuditRun
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold text-foreground">Audit #{auditRun.version}</h1>
-          <AuditStatusBadge status={auditRun.status} />
+          <StatusTransition statusKey={auditRun.status}>
+            <AuditStatusBadge status={auditRun.status} />
+          </StatusTransition>
           <DataSourceBadge dataSource={auditRun.dataSource as VerificationSource} />
         </div>
         <p className="text-sm text-muted-foreground">
@@ -106,7 +110,11 @@ export function AuditReportView({ initialAuditRun }: { initialAuditRun: AuditRun
 
       <AuditServiceStatusList services={auditRun.serviceStatuses} />
 
-      {isTerminal && auditRun.status === "SUCCEEDED" ? <AuditFindingsPanel auditRunId={auditRun.id} /> : null}
+      {isTerminal && auditRun.status === "SUCCEEDED" ? (
+        <PanelReveal>
+          <AuditFindingsPanel auditRunId={auditRun.id} />
+        </PanelReveal>
+      ) : null}
     </div>
   );
 }

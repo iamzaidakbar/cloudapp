@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AuditStatusBadge } from "@/components/audits/audit-status-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import { formatCurrency } from "@/lib/format";
 import type { JobStatus } from "@/lib/generated/prisma/client";
 
@@ -32,30 +33,40 @@ export function ComparisonRunsTable({ runs }: { runs: ComparisonRunRow[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {runs.map((run) => (
+        {runs.map((run, index) => (
           <TableRow key={run.id} className="relative">
             <TableCell>
-              <Link href={`/comparisons/${run.id}`} className="font-medium after:absolute after:inset-0 hover:underline">
-                #{run.version}
-              </Link>
+              <StaggerItem index={index}>
+                <Link href={`/comparisons/${run.id}`} className="font-medium after:absolute after:inset-0 hover:underline">
+                  #{run.version}
+                </Link>
+              </StaggerItem>
             </TableCell>
             <TableCell>
-              <AuditStatusBadge status={run.status} />
+              <StaggerItem index={index}>
+                <AuditStatusBadge status={run.status} />
+              </StaggerItem>
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              {run.startedAt ? <FormattedDateTime value={run.startedAt} /> : "—"}
+              <StaggerItem index={index}>{run.startedAt ? <FormattedDateTime value={run.startedAt} /> : "—"}</StaggerItem>
             </TableCell>
             <TableCell className="text-xs text-muted-foreground">
-              {run.finishedAt ? <FormattedDateTime value={run.finishedAt} /> : "—"}
-            </TableCell>
-            <TableCell>{run.itemCount ?? "—"}</TableCell>
-            <TableCell>
-              {run.costDataAvailable && run.totalAwsMonthlyCost !== null ? formatCurrency(run.totalAwsMonthlyCost) : "—"}
+              <StaggerItem index={index}>{run.finishedAt ? <FormattedDateTime value={run.finishedAt} /> : "—"}</StaggerItem>
             </TableCell>
             <TableCell>
-              {run.costDataAvailable && run.totalGcpLikeForLikeCost !== null
-                ? formatCurrency(run.totalGcpLikeForLikeCost)
-                : "—"}
+              <StaggerItem index={index}>{run.itemCount ?? "—"}</StaggerItem>
+            </TableCell>
+            <TableCell>
+              <StaggerItem index={index}>
+                {run.costDataAvailable && run.totalAwsMonthlyCost !== null ? formatCurrency(run.totalAwsMonthlyCost) : "—"}
+              </StaggerItem>
+            </TableCell>
+            <TableCell>
+              <StaggerItem index={index}>
+                {run.costDataAvailable && run.totalGcpLikeForLikeCost !== null
+                  ? formatCurrency(run.totalGcpLikeForLikeCost)
+                  : "—"}
+              </StaggerItem>
             </TableCell>
           </TableRow>
         ))}

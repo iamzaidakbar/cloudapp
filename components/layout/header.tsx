@@ -19,7 +19,7 @@ export function Header({ admin }: HeaderProps) {
   const pathname = usePathname();
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 md:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-glass-border bg-glass-subtle supports-backdrop-filter:backdrop-blur-md px-4 md:px-6">
       <MobileSidebar admin={admin} />
       <h1 className="text-sm font-semibold text-foreground md:text-base">
         {currentPageTitle(pathname)}

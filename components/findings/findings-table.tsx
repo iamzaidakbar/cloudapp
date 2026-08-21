@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SeverityBadge } from "@/components/findings/severity-badge";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import type { FindingSeverity, FindingType } from "@/lib/generated/prisma/client";
 
 export type FindingRow = {
@@ -32,31 +33,39 @@ export function FindingsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {findings.map((finding) => (
+        {findings.map((finding, index) => (
           <TableRow key={finding.id}>
             <TableCell>
-              <SeverityBadge severity={finding.severity} />
+              <StaggerItem index={index}>
+                <SeverityBadge severity={finding.severity} />
+              </StaggerItem>
             </TableCell>
             <TableCell className="max-w-md whitespace-normal">
-              <p className="font-medium">{finding.title}</p>
-              <p className="text-xs text-muted-foreground">{finding.description}</p>
+              <StaggerItem index={index}>
+                <p className="font-medium">{finding.title}</p>
+                <p className="text-xs text-muted-foreground">{finding.description}</p>
+              </StaggerItem>
             </TableCell>
             {showResourceColumn ? (
               <TableCell>
-                {finding.resource ? (
-                  <Link
-                    href={`/infrastructure/${finding.resource.id}`}
-                    className="font-mono text-xs text-foreground hover:underline"
-                  >
-                    {finding.resource.name ?? finding.resource.resourceId}
-                  </Link>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
+                <StaggerItem index={index}>
+                  {finding.resource ? (
+                    <Link
+                      href={`/infrastructure/${finding.resource.id}`}
+                      className="font-mono text-xs text-foreground hover:underline"
+                    >
+                      {finding.resource.name ?? finding.resource.resourceId}
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </StaggerItem>
               </TableCell>
             ) : null}
             <TableCell className="text-xs text-muted-foreground">
-              <FormattedDateTime value={finding.createdAt} />
+              <StaggerItem index={index}>
+                <FormattedDateTime value={finding.createdAt} />
+              </StaggerItem>
             </TableCell>
           </TableRow>
         ))}

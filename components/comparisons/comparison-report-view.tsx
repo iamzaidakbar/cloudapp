@@ -10,6 +10,8 @@ import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { ComparisonSummaryCards } from "@/components/comparisons/comparison-summary-cards";
 import { ComparisonItemsTable } from "@/components/comparisons/comparison-items-table";
 import { EmptyState } from "@/components/empty-state";
+import { StatusTransition } from "@/components/motion/status-transition";
+import { PanelReveal } from "@/components/motion/panel-reveal";
 import type { SerializedComparisonRun } from "@/lib/comparisons";
 import type { ComparisonItemRow } from "@/components/comparisons/comparison-items-table";
 import type { JobStatus } from "@/lib/generated/prisma/client";
@@ -58,7 +60,9 @@ export function ComparisonReportView({ initialComparisonRun }: { initialComparis
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-lg font-semibold text-foreground">Comparison #{comparisonRun.version}</h1>
-          <AuditStatusBadge status={comparisonRun.status} />
+          <StatusTransition statusKey={comparisonRun.status}>
+            <AuditStatusBadge status={comparisonRun.status} />
+          </StatusTransition>
           <DataSourceBadge dataSource={comparisonRun.awsDataSource} />
           <DataSourceBadge dataSource={comparisonRun.gcpDataSource} />
         </div>
@@ -107,9 +111,13 @@ export function ComparisonReportView({ initialComparisonRun }: { initialComparis
       />
 
       {comparisonRun.items.length > 0 ? (
-        <ComparisonItemsTable items={comparisonRun.items} />
+        <PanelReveal>
+          <ComparisonItemsTable items={comparisonRun.items} />
+        </PanelReveal>
       ) : isTerminal ? (
-        <EmptyState icon={GitCompare} title="No comparable resources" description="The source audit had no EC2, S3, RDS, Lambda, or VPC resources to compare." />
+        <PanelReveal>
+          <EmptyState icon={GitCompare} title="No comparable resources" description="The source audit had no EC2, S3, RDS, Lambda, or VPC resources to compare." />
+        </PanelReveal>
       ) : null}
     </div>
   );

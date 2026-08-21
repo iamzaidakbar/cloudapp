@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { StaggerItem } from "@/components/motion/stagger-list";
 
 type SummaryData = {
   adminCount: number;
@@ -62,43 +63,47 @@ export function SummaryCards() {
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <ShieldCheck className="size-4" />
-            Admin Accounts
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {state.status === "loading" ? (
-            <Skeleton className="h-7 w-12" />
-          ) : (
-            <p className="text-2xl font-semibold">{state.data.adminCount}</p>
-          )}
-        </CardContent>
-      </Card>
+      <StaggerItem index={0}>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
+              <ShieldCheck className="size-4" />
+              Admin Accounts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {state.status === "loading" ? (
+              <Skeleton className="h-7 w-12" />
+            ) : (
+              <p className="text-2xl font-semibold">{state.data.adminCount}</p>
+            )}
+          </CardContent>
+        </Card>
+      </StaggerItem>
 
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
-            <Clock className="size-4" />
-            Last Login
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {state.status === "loading" ? (
-            <Skeleton className="h-7 w-32" />
-          ) : (
-            <p className="text-sm font-medium">
-              {state.data.lastLoginAt ? (
-                <FormattedDateTime value={state.data.lastLoginAt} />
-              ) : (
-                "This is your first login"
-              )}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <StaggerItem index={1}>
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="size-4" />
+              Last Login
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {state.status === "loading" ? (
+              <Skeleton className="h-7 w-32" />
+            ) : (
+              <p className="text-sm font-medium">
+                {state.data.lastLoginAt ? (
+                  <FormattedDateTime value={state.data.lastLoginAt} />
+                ) : (
+                  "This is your first login"
+                )}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </StaggerItem>
     </div>
   );
 }

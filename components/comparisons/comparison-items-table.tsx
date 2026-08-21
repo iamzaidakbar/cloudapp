@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StaggerItem } from "@/components/motion/stagger-list";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
@@ -28,8 +29,12 @@ export type ComparisonItemRow = {
   estimatedMigrationCost: string | number | null;
 };
 
-function CostCell({ value, available }: { value: string | number | null; available: boolean }) {
-  return <TableCell>{available && value !== null ? formatCurrency(value) : "N/A"}</TableCell>;
+function CostCell({ value, available, index }: { value: string | number | null; available: boolean; index: number }) {
+  return (
+    <TableCell>
+      <StaggerItem index={index}>{available && value !== null ? formatCurrency(value) : "N/A"}</StaggerItem>
+    </TableCell>
+  );
 }
 
 export function ComparisonItemsTable({ items }: { items: ComparisonItemRow[] }) {
@@ -49,25 +54,35 @@ export function ComparisonItemsTable({ items }: { items: ComparisonItemRow[] }) 
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
+          {items.map((item, index) => (
             <TableRow key={item.id}>
-              <TableCell className="whitespace-nowrap">{SERVICE_LABEL[item.awsService] ?? item.awsService}</TableCell>
-              <TableCell className="max-w-48">
-                <Link href={`/infrastructure/${item.auditResourceId}`} className="font-mono text-xs text-foreground hover:underline">
-                  {item.awsResourceName ?? item.awsResourceId}
-                </Link>
-                {item.awsSizeLabel ? <p className="text-xs text-muted-foreground">{item.awsSizeLabel}</p> : null}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">{item.region}</TableCell>
               <TableCell className="whitespace-nowrap">
-                <p>{item.gcpService}</p>
-                {item.gcpSizeLabel ? <p className="font-mono text-xs text-muted-foreground">{item.gcpSizeLabel}</p> : null}
+                <StaggerItem index={index}>{SERVICE_LABEL[item.awsService] ?? item.awsService}</StaggerItem>
               </TableCell>
-              <CostCell value={item.currentAwsMonthlyCost} available={item.costAvailable} />
-              <CostCell value={item.gcpLikeForLikeMonthlyCost} available={item.costAvailable} />
-              <CostCell value={item.gcpOptimizedMonthlyCost} available={item.costAvailable} />
+              <TableCell className="max-w-48">
+                <StaggerItem index={index}>
+                  <Link href={`/infrastructure/${item.auditResourceId}`} className="font-mono text-xs text-foreground hover:underline">
+                    {item.awsResourceName ?? item.awsResourceId}
+                  </Link>
+                  {item.awsSizeLabel ? <p className="text-xs text-muted-foreground">{item.awsSizeLabel}</p> : null}
+                </StaggerItem>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                <StaggerItem index={index}>{item.region}</StaggerItem>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <StaggerItem index={index}>
+                  <p>{item.gcpService}</p>
+                  {item.gcpSizeLabel ? <p className="font-mono text-xs text-muted-foreground">{item.gcpSizeLabel}</p> : null}
+                </StaggerItem>
+              </TableCell>
+              <CostCell value={item.currentAwsMonthlyCost} available={item.costAvailable} index={index} />
+              <CostCell value={item.gcpLikeForLikeMonthlyCost} available={item.costAvailable} index={index} />
+              <CostCell value={item.gcpOptimizedMonthlyCost} available={item.costAvailable} index={index} />
               <TableCell>
-                {item.estimatedMigrationCost !== null ? formatCurrency(item.estimatedMigrationCost) : "N/A"}
+                <StaggerItem index={index}>
+                  {item.estimatedMigrationCost !== null ? formatCurrency(item.estimatedMigrationCost) : "N/A"}
+                </StaggerItem>
               </TableCell>
             </TableRow>
           ))}

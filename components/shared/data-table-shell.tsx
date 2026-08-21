@@ -21,7 +21,9 @@ export function DataTableShell({ isEmpty, emptyState, pagination, buildPageHref,
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="overflow-x-auto rounded-lg border">{children}</div>
+      <div className="overflow-x-auto rounded-lg bg-glass-strong supports-backdrop-filter:bg-glass supports-backdrop-filter:backdrop-blur-md ring-1 ring-glass-border shadow-glass">
+        {children}
+      </div>
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <p>
           Showing {start}–{end} of {total}
