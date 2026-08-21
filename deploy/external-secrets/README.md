@@ -54,3 +54,12 @@ After versions exist, ESO refreshes within ~1 minute; restart pods if needed:
 ```bash
 kubectl -n development rollout restart deploy/cloudshiftg-web deploy/cloudshiftg-worker
 ```
+
+## Staging (Phase D)
+
+```bash
+kubectl apply -f deploy/external-secrets/staging/secretstore.yaml
+kubectl apply -f deploy/external-secrets/staging/externalsecret-cloudshiftg.yaml
+```
+
+See [docs/PHASE_D_CHECKLIST.md](../../docs/PHASE_D_CHECKLIST.md).

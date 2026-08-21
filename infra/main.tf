@@ -68,6 +68,12 @@ variable "artifact_registry_repo" {
   default = "cloudshiftg"
 }
 
+variable "github_repository" {
+  type        = string
+  description = "GitHub repo (owner/name) allowed to deploy via Workload Identity Federation"
+  default     = "iamzaidakbar/cloudapp"
+}
+
 locals {
   labels = {
     app         = "cloudshiftg"
@@ -78,6 +84,10 @@ locals {
   # Pods talk to Cloud SQL via the Auth Proxy on localhost (Phase A).
   database_url_proxy = "postgresql://cloudshiftg:${urlencode(random_password.migrate.result)}@127.0.0.1:5432/cloudshiftg?schema=public"
   app_database_url_proxy = "postgresql://cloudshiftg_app:${urlencode(random_password.app.result)}@127.0.0.1:5432/cloudshiftg?schema=public"
+
+  # Phase D — staging DB on the same instance
+  staging_database_url_proxy     = "postgresql://cloudshiftg:${urlencode(random_password.migrate.result)}@127.0.0.1:5432/cloudshiftg_staging?schema=public"
+  staging_app_database_url_proxy = "postgresql://cloudshiftg_app:${urlencode(random_password.app.result)}@127.0.0.1:5432/cloudshiftg_staging?schema=public"
 }
 
 data "google_project" "project" {
@@ -210,6 +220,12 @@ resource "google_sql_database" "app" {
   instance = google_sql_database_instance.postgres.name
 }
 
+# Phase D — staging database on the shared instance
+resource "google_sql_database" "staging" {
+  name     = "cloudshiftg_staging"
+  instance = google_sql_database_instance.postgres.name
+}
+
 resource "random_password" "migrate" {
   length  = 32
   special = false
@@ -328,11 +344,17 @@ resource "google_project_iam_member" "tf_job_cloudsql" {
   member  = "serviceAccount:${google_service_account.terraform_job.email}"
 }
 
-# Workload Identity: bind KSA → GSA (namespaces: development + production)
+# Workload Identity: bind KSA → GSA (namespaces: development + staging + production)
 resource "google_service_account_iam_member" "web_wi_dev" {
   service_account_id = google_service_account.web.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[development/cloudshiftg-web]"
+}
+
+resource "google_service_account_iam_member" "web_wi_staging" {
+  service_account_id = google_service_account.web.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[staging/cloudshiftg-web]"
 }
 
 resource "google_service_account_iam_member" "web_wi_prod" {
@@ -347,6 +369,12 @@ resource "google_service_account_iam_member" "worker_wi_dev" {
   member             = "serviceAccount:${var.project_id}.svc.id.goog[development/cloudshiftg-worker]"
 }
 
+resource "google_service_account_iam_member" "worker_wi_staging" {
+  service_account_id = google_service_account.worker.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[staging/cloudshiftg-worker]"
+}
+
 resource "google_service_account_iam_member" "worker_wi_prod" {
   service_account_id = google_service_account.worker.name
   role               = "roles/iam.workloadIdentityUser"
@@ -357,6 +385,12 @@ resource "google_service_account_iam_member" "tf_wi_dev" {
   service_account_id = google_service_account.terraform_job.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[development/cloudshiftg-terraform-job]"
+}
+
+resource "google_service_account_iam_member" "tf_wi_staging" {
+  service_account_id = google_service_account.terraform_job.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[staging/cloudshiftg-terraform-job]"
 }
 
 resource "google_service_account_iam_member" "tf_wi_prod" {
@@ -376,6 +410,12 @@ resource "google_service_account_iam_member" "eso_wi_dev_store" {
   service_account_id = google_service_account.eso.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[development/cloudshiftg-eso-sa]"
+}
+
+resource "google_service_account_iam_member" "eso_wi_staging_store" {
+  service_account_id = google_service_account.eso.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[staging/cloudshiftg-eso-sa]"
 }
 
 # --- Secret Manager (versions written by Terraform for Phase A bootstrap) ---
@@ -464,6 +504,33 @@ resource "google_secret_manager_secret_version" "gcp_billing_placeholder" {
   secret_data = "unset"
 }
 
+# Phase D — staging DB URL secrets (session + AWS reuse development SM IDs)
+resource "google_secret_manager_secret" "staging_db_url" {
+  secret_id = "cloudshiftg-staging-database-url"
+  replication {
+    auto {}
+  }
+  labels = local.labels
+}
+
+resource "google_secret_manager_secret" "staging_app_db_url" {
+  secret_id = "cloudshiftg-staging-app-database-url"
+  replication {
+    auto {}
+  }
+  labels = local.labels
+}
+
+resource "google_secret_manager_secret_version" "staging_db_url" {
+  secret      = google_secret_manager_secret.staging_db_url.id
+  secret_data = local.staging_database_url_proxy
+}
+
+resource "google_secret_manager_secret_version" "staging_app_db_url" {
+  secret      = google_secret_manager_secret.staging_app_db_url.id
+  secret_data = local.staging_app_database_url_proxy
+}
+
 locals {
   secret_accessor_members = {
     web    = "serviceAccount:${google_service_account.web.email}"
@@ -472,13 +539,15 @@ locals {
   }
 
   all_app_secrets = {
-    session            = google_secret_manager_secret.session.secret_id
-    db_url             = google_secret_manager_secret.db_url.secret_id
-    app_db_url         = google_secret_manager_secret.app_db_url.secret_id
-    aws_access_key_id  = google_secret_manager_secret.aws_access_key_id.secret_id
+    session               = google_secret_manager_secret.session.secret_id
+    db_url                = google_secret_manager_secret.db_url.secret_id
+    app_db_url            = google_secret_manager_secret.app_db_url.secret_id
+    aws_access_key_id     = google_secret_manager_secret.aws_access_key_id.secret_id
     aws_secret_access_key = google_secret_manager_secret.aws_secret_access_key.secret_id
-    aws_region         = google_secret_manager_secret.aws_region.secret_id
-    gcp_billing_api_key = google_secret_manager_secret.gcp_billing_api_key.secret_id
+    aws_region            = google_secret_manager_secret.aws_region.secret_id
+    gcp_billing_api_key   = google_secret_manager_secret.gcp_billing_api_key.secret_id
+    staging_db_url        = google_secret_manager_secret.staging_db_url.secret_id
+    staging_app_db_url    = google_secret_manager_secret.staging_app_db_url.secret_id
   }
 }
 
@@ -498,6 +567,51 @@ resource "google_secret_manager_secret_iam_member" "accessors" {
   secret_id = each.value.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = each.value.member
+}
+
+# --- Phase D: GitHub Actions deploy via Workload Identity Federation ---
+resource "google_service_account" "github_deploy" {
+  account_id   = "cloudshiftg-github-deploy"
+  display_name = "CloudShift-G GitHub Actions deploy"
+}
+
+resource "google_project_iam_member" "github_ar_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.github_deploy.email}"
+}
+
+resource "google_project_iam_member" "github_gke_developer" {
+  project = var.project_id
+  role    = "roles/container.developer"
+  member  = "serviceAccount:${google_service_account.github_deploy.email}"
+}
+
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github-actions"
+  display_name              = "GitHub Actions"
+  description               = "Phase D CI/CD for CloudShift-G"
+}
+
+resource "google_iam_workload_identity_pool_provider" "github" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github"
+  display_name                       = "GitHub"
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.actor"      = "assertion.actor"
+    "attribute.repository" = "assertion.repository"
+  }
+  attribute_condition = "assertion.repository == '${var.github_repository}'"
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+resource "google_service_account_iam_member" "github_deploy_wif" {
+  service_account_id = google_service_account.github_deploy.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repository}"
 }
 
 output "cluster_name" {
@@ -536,14 +650,24 @@ output "eso_gsa_email" {
   value = google_service_account.eso.email
 }
 
+output "github_deploy_sa_email" {
+  value = google_service_account.github_deploy.email
+}
+
+output "github_workload_identity_provider" {
+  value = "projects/${data.google_project.project.number}/locations/global/workloadIdentityPools/${google_iam_workload_identity_pool.github.workload_identity_pool_id}/providers/${google_iam_workload_identity_pool_provider.github.workload_identity_pool_provider_id}"
+}
+
 output "secret_ids" {
   value = {
-    session_secret        = google_secret_manager_secret.session.secret_id
-    database_url          = google_secret_manager_secret.db_url.secret_id
-    app_database_url      = google_secret_manager_secret.app_db_url.secret_id
-    aws_access_key_id     = google_secret_manager_secret.aws_access_key_id.secret_id
-    aws_secret_access_key = google_secret_manager_secret.aws_secret_access_key.secret_id
-    aws_region            = google_secret_manager_secret.aws_region.secret_id
-    gcp_billing_api_key   = google_secret_manager_secret.gcp_billing_api_key.secret_id
+    session_secret              = google_secret_manager_secret.session.secret_id
+    database_url                = google_secret_manager_secret.db_url.secret_id
+    app_database_url            = google_secret_manager_secret.app_db_url.secret_id
+    staging_database_url        = google_secret_manager_secret.staging_db_url.secret_id
+    staging_app_database_url    = google_secret_manager_secret.staging_app_db_url.secret_id
+    aws_access_key_id           = google_secret_manager_secret.aws_access_key_id.secret_id
+    aws_secret_access_key       = google_secret_manager_secret.aws_secret_access_key.secret_id
+    aws_region                  = google_secret_manager_secret.aws_region.secret_id
+    gcp_billing_api_key         = google_secret_manager_secret.gcp_billing_api_key.secret_id
   }
 }

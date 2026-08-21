@@ -119,7 +119,7 @@ kubectl -n development wait --for=condition=complete job/phase-c-db-prove --time
 - [ ] Generate (and apply/rollback as applicable) proven on Autopilot
 
 **Handoff**
-- [ ] Phase D next (staging namespace + fuller CI)
+- [ ] Phase D next (staging namespace + fuller CI) — see [docs/PHASE_D_CHECKLIST.md](PHASE_D_CHECKLIST.md)
 
 ---
 

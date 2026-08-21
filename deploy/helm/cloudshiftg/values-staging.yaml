@@ -1,0 +1,31 @@
+environment: staging
+
+cloudsql:
+  enabled: true
+
+migrate:
+  # First staging install ran migrate via Helm hook. Keep false for upgrades.
+  enabled: false
+
+web:
+  replicas: 1
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+
+worker:
+  # Prefer 1 replica; Autopilot free/trial quota may force 0 while development
+  # also runs a worker. Scale up when capacity allows.
+  replicas: 1
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 4
+
+ingress:
+  enabled: false
+  host: cloudshiftg-staging.example.com
+
+secrets:
+  awsOptional: false
