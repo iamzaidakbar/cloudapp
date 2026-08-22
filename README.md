@@ -138,8 +138,6 @@ infra/                      Platform Terraform (Autopilot, VPC, AR, SQL, Pub/Sub
 deploy/
   helm/cloudshiftg/         Helm chart (web, worker, Ingress, HPA, PDB, NetworkPolicy)
   cloudrun/                 Parallel Cloud Run path
-docs/
-  UI_VERIFICATION_CHECKLIST.md
 prisma/
   schema.prisma, seed.ts, migrations/
 db/init/                    One-time Postgres role setup (mounted into the container)
@@ -216,9 +214,31 @@ helm upgrade --install cloudshiftg deploy/helm/cloudshiftg -n development --crea
 
 CI: `.github/workflows/deploy-gke.yml` (build → AR → migrate → Helm). Observability notes: `deploy/OBSERVABILITY.md`.
 
-## UI verification checklist
+## Access (local + GKE development)
 
-After deploy (local or GKE), walk through **[docs/UI_VERIFICATION_CHECKLIST.md](docs/UI_VERIFICATION_CHECKLIST.md)** — audits → comparisons → migration approve/terraform/apply/rollback, Jobs/Audit Log, RBAC, and GKE-specific Job/worker log checks.
+**Local:** `npm run dev` → http://localhost:3000
+
+**GKE `development` (port-forward):**
+
+```bash
+kubectl -n development port-forward svc/cloudshiftg-web 8081:80
+# http://127.0.0.1:8081
+```
+
+**Public HTTPS without a domain (Cloudflare Quick Tunnel):** keep port-forward running, then in a second terminal:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8081
+```
+
+Copy the printed `https://….trycloudflare.com` URL. It changes every time you restart the tunnel; both processes must stay running on your laptop.
+
+**Capacity note (Autopilot SSD quota):** scale the worker to `0` before Terraform/Apply/Rollback Jobs; scale to `1` only when running audits/comparisons:
+
+```bash
+kubectl -n development scale deploy/cloudshiftg-worker --replicas=0
+kubectl -n development scale deploy/cloudshiftg-worker --replicas=1
+```
 
 ## Verification checklist
 
@@ -309,4 +329,14 @@ After deploy (local or GKE), walk through **[docs/UI_VERIFICATION_CHECKLIST.md](
 
 ## Roadmap
 
-Data transfer/cutover remains a later vertical slice. **GKE Autopilot platform scaffolding is in-repo** (`infra/`, `deploy/helm/`, worker + Job images, Pub/Sub enqueue path); production cutover still requires applying Terraform with a real project ID, wiring Secret Manager versions, and approving GKE over Cloud Run for prod.
+**Done on GKE `development`:** audit → compare → migrate → Terraform generate/plan → **Apply → Verify → Rollback** (GCS bucket E2E proven). Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
+
+**Still pending:**
+
+| Item | Notes |
+|------|--------|
+| Data transfer / cutover | Unbuilt product slice (sidebar still 404) |
+| GitHub Actions / CI polish | Workflow exists; harden and wire fully as needed |
+| Production cutover (Phase K) | Prod namespace, secrets, cutover decision vs Cloud Run |
+| Docs / CI finish (Phase L) | Runbooks beyond this README |
+| Public URL | Paid domain + Ingress (or stable tunnel) — deferred |

@@ -332,6 +332,13 @@ resource "google_project_iam_member" "web_cloudsql" {
   member  = "serviceAccount:${google_service_account.web.email}"
 }
 
+# Verification health-checks (e.g. storage.buckets.get) need project-wide read.
+resource "google_project_iam_member" "web_viewer" {
+  project = var.project_id
+  role    = "roles/viewer"
+  member  = "serviceAccount:${google_service_account.web.email}"
+}
+
 resource "google_project_iam_member" "worker_cloudsql" {
   project = var.project_id
   role    = "roles/cloudsql.client"
