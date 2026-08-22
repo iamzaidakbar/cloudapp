@@ -335,12 +335,16 @@ kubectl -n development scale deploy/cloudshiftg-worker --replicas=1
 
 ## Roadmap
 
-**Done on GKE `development`:** audit → compare → migrate → Terraform → Apply → Verify → Data transfer (S3→GCS, RDS→Cloud SQL, Lambda zip→Cloud Functions, EC2 AMI→GCE image) → Rollback. Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS). CI: PR lint/typecheck + GKE deploy with migrate hooks.
+**Done (product):** multi-tenant app on GKE Autopilot `development` — audit → compare → migrate → Terraform → Apply → Verify → Data transfer (S3→GCS, RDS→Cloud SQL, Lambda zip→Cloud Functions, EC2 AMI→GCE image) → Rollback. PR CI (lint + typecheck) and GKE deploy workflow with migrate hooks. Staging worker often `0` (SSD quota Strategy B).
 
 **Still pending:**
 
 | Item | Notes |
 |------|--------|
+| Live prove — RDS transfer | Public MySQL/Postgres RDS → Transfer with password → confirm Cloud SQL (in progress / blocked on worker+quota earlier) |
+| Live prove — Lambda transfer | Zip Node Lambda → Apply → Transfer → confirm CF source |
+| Live prove — EC2 transfer | Exportable Linux instance + `vmimport` → Transfer → confirm GCE boot image |
+| Deploy latest transfer/CI images | Build/push + Helm upgrade `development` (code may be ahead of cluster tag) |
 | Production cutover (Phase K) | Prod namespace, secrets, GKE vs Cloud Run |
 | Docs / runbooks (Phase L) | Beyond this README |
 | Public URL | Paid domain + Ingress — deferred |
