@@ -88,33 +88,18 @@ Rollback only if apply created real GCP resources.
 
 ---
 
-## Live prove status (2026-08-21)
+## Live prove status (2026-08-22)
 
 **Automated / agent:**
 
 - [x] Development web + worker Ready; `JOB_RUNTIME=k8s-job`
-- [x] Port-forward health + ready OK (`8080`)
-- [x] Phase F Tenant Admin registered (org “Phase F Prove”) for API smoke
-- [x] APPLY skipped (blocked until audit/compare succeed)
+- [x] Port-forward health + ready OK
+- [x] Phase F Tenant Admin / AWS connection verified (tenant External ID + trust)
+- [x] Audit + Comparison Succeeded (after IAM trust)
+- [x] At least one TERRAFORM k8s Job Succeeded (manual retry after SESSION_SECRET + plugin-cache fixes; SSD quota required worker scale-down)
+- [x] APPLY skipped (optional; not required for Phase F DoD)
 
-**Blocked on your AWS IAM (required for F3–F4):**
-
-App identity is `arn:aws:iam::272694330558:user/cloudshiftg-app`.  
-AssumeRole into candidate roles failed (trust / External ID).
-
-**You do this once in AWS**, then finish F3–F4 in the browser:
-
-1. Open the IAM role you use for CloudShift-G (or create one).
-2. Trust policy Principal = `arn:aws:iam::272694330558:user/cloudshiftg-app`
-3. Condition `sts:ExternalId` = the External ID shown in **Settings → AWS** for your tenant
-4. Port-forward → login as Tenant Admin → Run Audit → Run Comparison → Migration Generate
-
-```bash
-kubectl -n development port-forward svc/cloudshiftg-web 8080:80
-# http://127.0.0.1:8080
-```
-
-Until trust is fixed, product E2E cannot complete with real AWS on GKE (keys are present; Dev Adapter is not used).
+**Capacity note:** `SSD_TOTAL_GB` us-east1 at cap (~250 GB); Autopilot scale-up may fail. Scale worker to 0 before Terraform Jobs / Helm surge if pods stay Pending.
 
 ---
 
@@ -122,12 +107,12 @@ Until trust is fixed, product E2E cannot complete with real AWS on GKE (keys are
 
 - [x] Checklist + Phase E handoff
 - [x] Platform ready (`JOB_RUNTIME=k8s-job`, health/ready)
-- [ ] Audit Succeeded on development *(user: after IAM trust)*
-- [ ] Comparison Succeeded on development *(user: after IAM trust)*
-- [ ] At least one TERRAFORM k8s Job Succeeded *(user: after IAM trust)*
-- [x] APPLY explicitly skipped until F3–F4 succeed
+- [x] Audit Succeeded on development
+- [x] Comparison Succeeded on development
+- [x] At least one TERRAFORM k8s Job Succeeded
+- [x] APPLY explicitly skipped
 
-**Handoff:** Phase G next (Helm rolling upgrade + rollback demo) once F3–F4 checkboxes are ticked, or in parallel if you only need deploy mechanics.
+**Handoff:** Phase G next — see [PHASE_G_CHECKLIST.md](./PHASE_G_CHECKLIST.md) (Helm rolling upgrade + rollback; no GitHub Actions).
 
 ---
 
