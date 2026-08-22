@@ -2,6 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StaggerItem } from "@/components/motion/stagger-list";
 import { FadeIn } from "@/components/motion/fade-in";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { DownloadCsvButton } from "@/components/shared/download-csv-button";
 import { formatCurrency } from "@/lib/format";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
@@ -30,7 +31,13 @@ export type MigrationResourceRow = {
   bytesTransferred: string | number | bigint | null;
 };
 
-export function MigrationResourcesTable({ resources }: { resources: MigrationResourceRow[] }) {
+export function MigrationResourcesTable({
+  resources,
+  exportHref,
+}: {
+  resources: MigrationResourceRow[];
+  exportHref?: string;
+}) {
   const anyProvisioned = resources.some((r) => r.provisionedAt);
   const anyTransferred = resources.some((r) => r.transferredAt);
 
@@ -44,6 +51,9 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
               {resources.length.toLocaleString()} resource{resources.length === 1 ? "" : "s"} in this plan
             </p>
           </div>
+          {exportHref && resources.length > 0 ? (
+            <DownloadCsvButton href={exportHref} />
+          ) : null}
         </div>
         <div className="overflow-x-auto">
           <Table>

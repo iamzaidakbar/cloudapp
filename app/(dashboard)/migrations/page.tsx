@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ArrowRightLeft } from "lucide-react";
 import { requireTenantScope } from "@/lib/auth/guard";
 import { getTenantWithConnection } from "@/lib/tenant";
@@ -7,9 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MigrationsHero } from "@/components/migrations/migrations-hero";
 import { MigrationKpis } from "@/components/migrations/migration-kpis";
-import { MigrationRunsTable } from "@/components/migrations/migration-runs-table";
-import { DataTableShell } from "@/components/shared/data-table-shell";
-import { EmptyState } from "@/components/empty-state";
+import { MigrationsLivePanel } from "@/components/migrations/migrations-live-panel";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +20,7 @@ export default async function MigrationsPage({
   const params = await searchParams;
   const admin = await requireTenantScope();
   const { tenant, connection } = await getTenantWithConnection(admin.tenantId);
+  const isMember = admin.role === "TENANT_MEMBER";
 
   const urlSearchParams = new URLSearchParams(
     Object.entries(params).flatMap(([key, value]) =>
@@ -37,6 +37,12 @@ export default async function MigrationsPage({
   const disabledReason = !selectable
     ? "Run a successful AWS to GCP comparison first."
     : "Latest comparison has no migratable resources (EC2, S3, RDS, or Lambda). VPCs alone cannot start a plan — create one in AWS (e.g. an S3 bucket), then re-run Audit and Comparison.";
+
+  const emptyDescription = isMember
+    ? "No migrations yet · a Tenant Admin creates plans after a successful comparison."
+    : canCreate
+      ? "Select resources from your latest comparison to create a migration plan."
+      : disabledReason;
 
   const newMigrationLink = (
     <Link
@@ -66,28 +72,19 @@ export default async function MigrationsPage({
       <MigrationsHero
         tenantName={tenant?.name ?? "your organization"}
         totalPlans={total}
+        viewOnly={isMember}
         actions={actions}
       />
       {total > 0 ? <MigrationKpis stats={stats} /> : null}
 
-      <DataTableShell
-        isEmpty={total === 0}
-        emptyState={
-          <EmptyState
-            icon={ArrowRightLeft}
-            title="No migration plans yet"
-            description={
-              canCreate
-                ? "Select resources from your latest comparison to create a migration plan."
-                : disabledReason
-            }
-          />
-        }
-        pagination={meta}
-        buildPageHref={(p) => `/migrations?page=${p}`}
-      >
-        <MigrationRunsTable plans={items} />
-      </DataTableShell>
+      <Suspense fallback={null}>
+        <MigrationsLivePanel
+          initialPlans={items}
+          initialMeta={meta}
+          emptyTitle="No migration plans yet"
+          emptyDescription={emptyDescription}
+        />
+      </Suspense>
     </div>
   );
 }

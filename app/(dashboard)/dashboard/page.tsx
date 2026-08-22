@@ -35,6 +35,7 @@ export default async function DashboardPage() {
     : null;
 
   const connectionStatus = connection?.status ?? "NOT_CONNECTED";
+  const canWrite = admin.role === "TENANT_ADMIN";
 
   return (
     <div className="flex flex-col gap-5">
@@ -43,9 +44,10 @@ export default async function DashboardPage() {
         connected={connected}
         connectionStatus={connectionStatus}
         adminName={admin.name}
+        canWrite={canWrite}
       />
 
-      {!connected ? <OnboardingCta /> : null}
+      {!connected ? <OnboardingCta canWrite={canWrite} /> : null}
 
       <DashboardKpis
         connected={connected}

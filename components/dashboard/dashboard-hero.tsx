@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { ConnectionStatusBadge } from "@/components/aws/connection-status-badge";
+import { ViewOnlyBanner } from "@/components/shared/view-only-banner";
 import { FadeIn } from "@/components/motion/fade-in";
 import { cn } from "@/lib/utils";
 import type { ConnectionStatus } from "@/lib/generated/prisma/client";
@@ -17,6 +18,7 @@ type DashboardHeroProps = {
   connected: boolean;
   connectionStatus: ConnectionStatus;
   adminName: string | null;
+  canWrite?: boolean;
 };
 
 export function DashboardHero({
@@ -24,6 +26,7 @@ export function DashboardHero({
   connected,
   connectionStatus,
   adminName,
+  canWrite = true,
 }: DashboardHeroProps) {
   const greeting = adminName?.trim()
     ? `Welcome back, ${adminName.trim().split(/\s+/)[0]}`
@@ -61,38 +64,64 @@ export function DashboardHero({
               </h1>
               <p className="max-w-xl text-sm text-muted-foreground">
                 {connected
-                  ? "Monitor audits, cost comparisons, and migration plans from one command surface."
-                  : "Connect AWS to unlock infrastructure discovery, audits, and GCP migration planning."}
+                  ? canWrite
+                    ? "Monitor audits, cost comparisons, and migration plans from one command surface."
+                    : "Review audits, comparisons, and migration plans. Tenant Admins run new work."
+                  : canWrite
+                    ? "Connect AWS to unlock infrastructure discovery, audits, and GCP migration planning."
+                    : "AWS is not connected yet. Ask a Tenant Admin to finish setup."}
               </p>
             </div>
+            {!canWrite ? (
+              <ViewOnlyBanner className="max-w-xl" />
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {connected ? (
-              <>
-                <Link
-                  href="/audits"
-                  className={cn(buttonVariants({ variant: "default" }))}
-                >
-                  <ListChecks className="size-4" />
-                  Run audit
-                </Link>
-                <Link
-                  href="/comparisons"
-                  className={cn(buttonVariants({ variant: "outline" }))}
-                >
-                  <GitCompare className="size-4" />
-                  Compare
-                </Link>
-                <Link
-                  href="/migrations/new"
-                  className={cn(buttonVariants({ variant: "outline" }))}
-                >
-                  <Rocket className="size-4" />
-                  New migration
-                </Link>
-              </>
-            ) : (
+              canWrite ? (
+                <>
+                  <Link
+                    href="/audits"
+                    className={cn(buttonVariants({ variant: "default" }))}
+                  >
+                    <ListChecks className="size-4" />
+                    Run audit
+                  </Link>
+                  <Link
+                    href="/comparisons"
+                    className={cn(buttonVariants({ variant: "outline" }))}
+                  >
+                    <GitCompare className="size-4" />
+                    Compare
+                  </Link>
+                  <Link
+                    href="/migrations/new"
+                    className={cn(buttonVariants({ variant: "outline" }))}
+                  >
+                    <Rocket className="size-4" />
+                    New migration
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/audits"
+                    className={cn(buttonVariants({ variant: "outline" }))}
+                  >
+                    <ListChecks className="size-4" />
+                    View audits
+                  </Link>
+                  <Link
+                    href="/migrations"
+                    className={cn(buttonVariants({ variant: "outline" }))}
+                  >
+                    <Rocket className="size-4" />
+                    View migrations
+                  </Link>
+                </>
+              )
+            ) : canWrite ? (
               <Link
                 href="/onboarding"
                 className={cn(buttonVariants({ variant: "default" }))}
@@ -101,7 +130,7 @@ export function DashboardHero({
                 Connect AWS
                 <ArrowRight className="size-4" />
               </Link>
-            )}
+            ) : null}
           </div>
         </div>
       </section>

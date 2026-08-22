@@ -65,8 +65,9 @@ export default async function SettingsPage() {
     {
       href: "/settings/aws",
       title: "AWS connection",
-      description:
-        "View and manage the AWS account CloudShift-G audits and migrates.",
+      description: isTenantAdmin
+        ? "View and manage the AWS account CloudShift-G audits and migrates."
+        : "View the AWS account connected to this organization.",
       icon: Cloud,
     },
   ];

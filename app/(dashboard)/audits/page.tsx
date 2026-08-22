@@ -41,12 +41,14 @@ export default async function AuditsPage({
   const canRun =
     admin.role === "TENANT_ADMIN" && connection?.status === "CONNECTED";
   const connected = connection?.status === "CONNECTED";
+  const viewOnly = admin.role === "TENANT_MEMBER";
 
   return (
     <div className="flex flex-col gap-4">
       <AuditsHero
         tenantName={tenant?.name ?? "your organization"}
         canRun={canRun}
+        viewOnly={viewOnly}
         hasActiveRun={Boolean(activeRun)}
         activeRunStartedAt={activeRun?.startedAt}
         totalRuns={total}
@@ -60,12 +62,16 @@ export default async function AuditsPage({
             icon={ClipboardCheck}
             title="No audits yet"
             description={
-              connected
-                ? "Run your first audit to discover and catalog your AWS resources."
-                : "Connect an AWS account before running an audit."
+              viewOnly
+                ? connected
+                  ? "No audit runs yet · a Tenant Admin starts the first discovery audit."
+                  : "AWS is not connected · ask a Tenant Admin to finish setup."
+                : connected
+                  ? "Run your first audit to discover and catalog your AWS resources."
+                  : "Connect an AWS account before running an audit."
             }
           >
-            {!connected ? (
+            {!connected && !viewOnly ? (
               <Link
                 href="/onboarding"
                 className={cn(

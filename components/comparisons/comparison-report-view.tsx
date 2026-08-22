@@ -95,7 +95,10 @@ export function ComparisonReportView({ initialComparisonRun }: { initialComparis
 
       {comparisonRun.items.length > 0 ? (
         <PanelReveal>
-          <ComparisonItemsTable items={comparisonRun.items} />
+          <ComparisonItemsTable
+            items={comparisonRun.items}
+            exportHref={`/api/comparisons/${comparisonRun.id}/export`}
+          />
         </PanelReveal>
       ) : isTerminal ? (
         <PanelReveal>

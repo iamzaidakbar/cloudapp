@@ -14,6 +14,7 @@ import { MigrationExecutionPanels } from "@/components/migrations/migration-exec
 import { RollbackPanel } from "@/components/migrations/rollback-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ViewOnlyBanner } from "@/components/shared/view-only-banner";
 
 function serializeTransferRun<T extends { bytesCopied: bigint | null } | null>(run: T) {
   if (!run) return null;
@@ -76,6 +77,10 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
         }
       />
 
+      {!isTenantAdmin ? (
+        <ViewOnlyBanner message="View only · Tenant Admins approve plans and run Terraform, apply, transfer, and rollback." />
+      ) : null}
+
       <MigrationSummaryCards
         resourceCount={plan.resourceCount}
         estimatedMigrationCost={plan.estimatedMigrationCost}
@@ -115,6 +120,7 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
       ) : null}
 
       <MigrationResourcesTable
+        exportHref={`/api/migrations/${plan.id}/export`}
         resources={plan.resources.map((r) => ({
           ...r,
           bytesTransferred:

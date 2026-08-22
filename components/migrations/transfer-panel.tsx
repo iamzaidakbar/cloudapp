@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRightLeft, Loader2 } from "lucide-react";
+import { ArrowRightLeft, Loader2, DatabaseZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { PanelReveal } from "@/components/motion/panel-reveal";
 import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
+import { EmptyState } from "@/components/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import { cn } from "@/lib/utils";
 import { RUN_STATUS_CLASS } from "@/lib/run-status";
 import type { TransferRunStatus } from "@/lib/generated/prisma/client";
@@ -214,9 +215,20 @@ export function TransferPanel({
           ) : null}
 
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorState
+              title="Could not start transfer"
+              description={error}
+              className="py-8"
+            />
+          ) : null}
+
+          {!run && !error ? (
+            <EmptyState
+              icon={DatabaseZap}
+              title="No transfer run yet"
+              description="Start a transfer to copy S3 objects, RDS dumps, Lambda packages, or EC2 images into GCP. Enter any required RDS passwords above first."
+              className="border-solid py-8"
+            />
           ) : null}
 
           {run ? (
@@ -244,10 +256,12 @@ export function TransferPanel({
                 ) : null}
               </div>
 
-              {run.errorMessage ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{run.errorMessage}</AlertDescription>
-                </Alert>
+              {run.status === "FAILED" && run.errorMessage ? (
+                <ErrorState
+                  title="Transfer failed"
+                  description={`${run.errorMessage} Fix the issue (credentials, IAM, or target capacity), then re-run transfer.`}
+                  className="py-8"
+                />
               ) : null}
 
               {run.status === "SUCCEEDED" ? (

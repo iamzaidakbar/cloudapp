@@ -7,6 +7,7 @@ import { FindingsTable, type FindingRow } from "@/components/findings/findings-t
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DownloadCsvButton } from "@/components/shared/download-csv-button";
 import type { FindingSeverity } from "@/lib/generated/prisma/client";
 
 type FindingsResponse = {
@@ -73,6 +74,9 @@ export function AuditFindingsPanel({ auditRunId }: { auditRunId: string }) {
               : `${data.total.toLocaleString()} finding${data.total === 1 ? "" : "s"}`}
           </p>
         </div>
+        {data.total > 0 ? (
+          <DownloadCsvButton href={`/api/audits/${auditRunId}/findings/export`} />
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-3 p-4 md:p-5">

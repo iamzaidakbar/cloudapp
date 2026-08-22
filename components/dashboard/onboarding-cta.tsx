@@ -1,10 +1,24 @@
-import Link from "next/link";
-import { ArrowRight, Cloud } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Cloud } from "lucide-react";
 import { FadeIn } from "@/components/motion/fade-in";
+import { ViewOnlyBanner } from "@/components/shared/view-only-banner";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function OnboardingCta() {
+type OnboardingCtaProps = {
+  canWrite?: boolean;
+};
+
+export function OnboardingCta({ canWrite = true }: OnboardingCtaProps) {
+  if (!canWrite) {
+    return (
+      <FadeIn delayMs={20}>
+        <ViewOnlyBanner message="AWS is not connected · Ask a Tenant Admin to complete onboarding." />
+      </FadeIn>
+    );
+  }
+
   return (
     <FadeIn delayMs={20}>
       <section className="relative overflow-hidden border border-foreground/20 bg-foreground text-background">

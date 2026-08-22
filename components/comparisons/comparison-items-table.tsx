@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { StaggerItem } from "@/components/motion/stagger-list";
 import { FadeIn } from "@/components/motion/fade-in";
 import { formatCurrency } from "@/lib/format";
+import { DownloadCsvButton } from "@/components/shared/download-csv-button";
 import type { AwsServiceType } from "@/lib/generated/prisma/client";
 
 const SERVICE_LABEL: Partial<Record<AwsServiceType, string>> = {
@@ -38,7 +39,13 @@ function CostCell({ value, available, index }: { value: string | number | null; 
   );
 }
 
-export function ComparisonItemsTable({ items }: { items: ComparisonItemRow[] }) {
+export function ComparisonItemsTable({
+  items,
+  exportHref,
+}: {
+  items: ComparisonItemRow[];
+  exportHref?: string;
+}) {
   return (
     <FadeIn delayMs={40}>
       <section className="border border-border bg-card">
@@ -49,6 +56,7 @@ export function ComparisonItemsTable({ items }: { items: ComparisonItemRow[] }) 
               {items.length.toLocaleString()} resource{items.length === 1 ? "" : "s"} with GCP targets
             </p>
           </div>
+          {exportHref ? <DownloadCsvButton href={exportHref} /> : null}
         </div>
         <div className="overflow-x-auto">
           <Table>

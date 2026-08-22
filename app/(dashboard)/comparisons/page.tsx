@@ -42,6 +42,7 @@ export default async function ComparisonsPage({
       <ComparisonsHero
         tenantName={tenant?.name ?? "your organization"}
         canRun={canRun}
+        viewOnly={admin.role === "TENANT_MEMBER"}
         hasActiveRun={Boolean(activeRun)}
         activeRunStartedAt={activeRun?.startedAt}
         hasSuccessfulAudit={Boolean(successfulAudit)}
@@ -56,9 +57,13 @@ export default async function ComparisonsPage({
             icon={GitCompare}
             title="No comparisons yet"
             description={
-              successfulAudit
-                ? "Run a comparison to see AWS resources mapped to their GCP equivalents with cost estimates."
-                : "Run a successful audit first, then compare its resources against GCP."
+              admin.role === "TENANT_MEMBER"
+                ? successfulAudit
+                  ? "No comparisons yet · a Tenant Admin runs cost mapping after an audit."
+                  : "Waiting on a successful audit · a Tenant Admin runs discovery first."
+                : successfulAudit
+                  ? "Run a comparison to see AWS resources mapped to their GCP equivalents with cost estimates."
+                  : "Run a successful audit first, then compare its resources against GCP."
             }
           />
         }

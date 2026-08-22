@@ -41,7 +41,11 @@ export default async function SettingsAwsPage() {
         </section>
       </FadeIn>
 
-      <AwsConnectionPanel initialTenant={tenant} initialConnection={connection} />
+      <AwsConnectionPanel
+        initialTenant={tenant}
+        initialConnection={connection}
+        canWrite={admin.role === "TENANT_ADMIN"}
+      />
     </div>
   );
 }
