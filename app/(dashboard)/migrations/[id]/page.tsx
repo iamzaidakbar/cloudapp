@@ -41,10 +41,18 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   const transferRun =
     applyRun?.status === "SUCCEEDED" ? await getLatestTransferRun(admin.tenantId, id) : null;
   const provisionedResources = plan.resources.filter((r) => r.gcpResourceSelfLink);
-  // S3 presence only — do not require gcpResourceSelfLink here. That link is
+  // S3/RDS presence only — do not require gcpResourceSelfLink here. That link is
   // written during Apply; requiring it at SSR hides the Transfer panel until
   // a full refresh even after Apply polls SUCCEEDED client-side.
-  const hasS3TransferTargets = plan.resources.some((r) => r.awsService === "S3_BUCKET");
+  const hasTransferTargets = plan.resources.some(
+    (r) => r.awsService === "S3_BUCKET" || r.awsService === "RDS_INSTANCE",
+  );
+  const rdsTransferTargets = plan.resources
+    .filter((r) => r.awsService === "RDS_INSTANCE")
+    .map((r) => ({
+      id: r.id,
+      label: r.awsResourceName ?? r.awsResourceId,
+    }));
   const canRollback = isTenantAdmin && plan.status === "APPROVED" && provisionedResources.length > 0;
   const rollbackRun = canRollback ? await getLatestRollbackRun(admin.tenantId, id) : null;
 
@@ -117,7 +125,8 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
           initialApplyRun={applyRun}
           initialVerificationRun={verificationRun}
           initialTransferRun={serializeTransferRun(transferRun)}
-          hasEligibleTransferResources={hasS3TransferTargets}
+          hasEligibleTransferResources={hasTransferTargets}
+          rdsTransferTargets={rdsTransferTargets}
         />
       ) : null}
 

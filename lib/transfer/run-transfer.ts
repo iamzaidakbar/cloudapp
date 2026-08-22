@@ -6,6 +6,12 @@ import { assumeTenantRole } from "@/lib/aws/sts";
 import { isAwsConfigured } from "@/lib/aws/is-configured";
 import { gcsBucketNameFromSelfLink } from "@/lib/transfer/gcs-bucket";
 import {
+  credentialForResource,
+  loadRdsCredentialsFromEnv,
+} from "@/lib/transfer/rds-credentials";
+import { transferRdsInstance } from "@/lib/transfer/rds";
+import { deleteRdsCredentialsSecret } from "@/lib/transfer/rds-credentials-secret";
+import {
   S3Client,
   ListObjectsV2Command,
   GetObjectCommand,
@@ -60,7 +66,11 @@ async function listGcsObjectStats(
   return { count: files.length, bytes };
 }
 
-export async function runTransfer(transferRunId: string, tenantId: string): Promise<void> {
+export async function runTransfer(
+  transferRunId: string,
+  tenantId: string,
+  options: { rdsCredentialsSecret?: string } = {},
+): Promise<void> {
   const now = new Date();
 
   const transferRun = await withTenantContext(tenantId, (tx) =>
@@ -95,14 +105,22 @@ export async function runTransfer(transferRunId: string, tenantId: string): Prom
     return;
   }
 
+  const projectId =
+    process.env.GCP_PROJECT_ID?.trim() || process.env.GOOGLE_CLOUD_PROJECT?.trim();
+  if (!projectId) {
+    await failRun(transferRunId, tenantId, "GCP_PROJECT_ID is not set.");
+    return;
+  }
+
+  const rdsCredentials = loadRdsCredentialsFromEnv();
   const skipped: SkippedResource[] = [];
   const eligible = resources.filter((r) => {
-    if (r.awsService !== "S3_BUCKET") {
+    if (r.awsService !== "S3_BUCKET" && r.awsService !== "RDS_INSTANCE") {
       skipped.push({
         migrationResourceId: r.id,
         awsService: r.awsService,
         awsResourceId: r.awsResourceId,
-        reason: "not supported in data-transfer v1 (S3→GCS only)",
+        reason: "not supported for data transfer (S3→GCS and RDS→Cloud SQL only)",
       });
       return false;
     }
@@ -112,6 +130,15 @@ export async function runTransfer(transferRunId: string, tenantId: string): Prom
         awsService: r.awsService,
         awsResourceId: r.awsResourceId,
         reason: "not provisioned yet — run Apply first",
+      });
+      return false;
+    }
+    if (r.awsService === "RDS_INSTANCE" && !credentialForResource(rdsCredentials, r.id)) {
+      skipped.push({
+        migrationResourceId: r.id,
+        awsService: r.awsService,
+        awsResourceId: r.awsResourceId,
+        reason: "missing RDS password for this resource",
       });
       return false;
     }
@@ -125,13 +152,15 @@ export async function runTransfer(transferRunId: string, tenantId: string): Prom
         data: {
           status: "FAILED",
           finishedAt: new Date(),
-          errorMessage: "No provisioned S3→GCS resources to transfer.",
+          errorMessage:
+            "No provisioned S3→GCS or RDS→Cloud SQL resources to transfer (check credentials for RDS).",
           objectsCopied: 0,
           bytesCopied: BigInt(0),
           skippedResources: skipped,
         },
       }),
     );
+    await cleanupSecret(options.rdsCredentialsSecret);
     return;
   }
 
@@ -143,80 +172,114 @@ export async function runTransfer(transferRunId: string, tenantId: string): Prom
       3600,
     );
     const storage = new Storage();
+    const awsCreds = credentialsFor(creds);
 
     let totalObjects = 0;
     let totalBytes = 0;
 
     for (const resource of eligible) {
-      const s3Bucket = resource.awsResourceName ?? resource.awsResourceId;
-      const gcsBucket = gcsBucketNameFromSelfLink(resource.gcpResourceSelfLink!);
-      if (!gcsBucket) {
-        throw new Error(`Could not parse GCS bucket from ${resource.gcpResourceSelfLink}`);
-      }
-
-      const regionalS3 = new S3Client({
-        region: resource.region || "us-east-1",
-        credentials: credentialsFor(creds),
-      });
-
-      const objects = await listAllS3Objects(regionalS3, s3Bucket);
-
-      let copiedObjects = 0;
-      let copiedBytes = 0;
-
-      for (const obj of objects) {
-        const key = obj.Key;
-        if (!key) continue;
-        const size = obj.Size ?? 0;
-
-        const get = await regionalS3.send(
-          new GetObjectCommand({ Bucket: s3Bucket, Key: key }),
-        );
-        if (!get.Body) {
-          throw new Error(`Empty body for s3://${s3Bucket}/${key}`);
+      if (resource.awsService === "S3_BUCKET") {
+        const s3Bucket = resource.awsResourceName ?? resource.awsResourceId;
+        const gcsBucket = gcsBucketNameFromSelfLink(resource.gcpResourceSelfLink!);
+        if (!gcsBucket) {
+          throw new Error(`Could not parse GCS bucket from ${resource.gcpResourceSelfLink}`);
         }
 
-        const body = get.Body as Readable;
-        const gcsFile = storage.bucket(gcsBucket).file(key);
-        const writeStream = gcsFile.createWriteStream({
-          resumable: size > 5 * 1024 * 1024,
-          metadata: {
-            contentType: get.ContentType,
-            metadata: {
-              "cloudshiftg-source": `s3://${s3Bucket}/${key}`,
-            },
-          },
+        const regionalS3 = new S3Client({
+          region: resource.region || "us-east-1",
+          credentials: awsCreds,
         });
 
-        await pipeline(body, writeStream);
-        copiedObjects += 1;
-        copiedBytes += size;
+        const objects = await listAllS3Objects(regionalS3, s3Bucket);
+
+        let copiedObjects = 0;
+        let copiedBytes = 0;
+
+        for (const obj of objects) {
+          const key = obj.Key;
+          if (!key) continue;
+          const size = obj.Size ?? 0;
+
+          const get = await regionalS3.send(
+            new GetObjectCommand({ Bucket: s3Bucket, Key: key }),
+          );
+          if (!get.Body) {
+            throw new Error(`Empty body for s3://${s3Bucket}/${key}`);
+          }
+
+          const body = get.Body as Readable;
+          const gcsFile = storage.bucket(gcsBucket).file(key);
+          const writeStream = gcsFile.createWriteStream({
+            resumable: size > 5 * 1024 * 1024,
+            metadata: {
+              contentType: get.ContentType,
+              metadata: {
+                "cloudshiftg-source": `s3://${s3Bucket}/${key}`,
+              },
+            },
+          });
+
+          await pipeline(body, writeStream);
+          copiedObjects += 1;
+          copiedBytes += size;
+        }
+
+        const gcsStats = await listGcsObjectStats(storage, gcsBucket);
+        const s3Bytes = objects.reduce((sum, o) => sum + (o.Size ?? 0), 0);
+        if (gcsStats.count !== objects.length || gcsStats.bytes !== s3Bytes) {
+          throw new Error(
+            `Post-copy verify failed for ${s3Bucket} → ${gcsBucket}: ` +
+              `S3 ${objects.length} objects / ${s3Bytes} bytes vs ` +
+              `GCS ${gcsStats.count} objects / ${gcsStats.bytes} bytes`,
+          );
+        }
+
+        await withTenantContext(tenantId, (tx) =>
+          tx.migrationResource.update({
+            where: { id: resource.id },
+            data: {
+              transferredAt: new Date(),
+              objectsTransferred: copiedObjects,
+              bytesTransferred: BigInt(copiedBytes),
+            },
+          }),
+        );
+
+        totalObjects += copiedObjects;
+        totalBytes += copiedBytes;
+        continue;
       }
 
-      // Verify counts and total sizes match.
-      const gcsStats = await listGcsObjectStats(storage, gcsBucket);
-      const s3Bytes = objects.reduce((sum, o) => sum + (o.Size ?? 0), 0);
-      if (gcsStats.count !== objects.length || gcsStats.bytes !== s3Bytes) {
-        throw new Error(
-          `Post-copy verify failed for ${s3Bucket} → ${gcsBucket}: ` +
-            `S3 ${objects.length} objects / ${s3Bytes} bytes vs ` +
-            `GCS ${gcsStats.count} objects / ${gcsStats.bytes} bytes`,
-        );
+      // RDS_INSTANCE
+      const rdsCred = credentialForResource(rdsCredentials, resource.id);
+      if (!rdsCred) {
+        throw new Error(`Missing RDS credentials for ${resource.awsResourceId}`);
       }
+
+      const result = await transferRdsInstance({
+        awsCredentials: awsCreds,
+        region: resource.region || "us-east-1",
+        awsResourceId: resource.awsResourceId,
+        gcpResourceSelfLink: resource.gcpResourceSelfLink,
+        migrationPlanId: transferRun.migrationPlanId,
+        migrationResourceId: resource.id,
+        credential: rdsCred,
+        projectId,
+      });
 
       await withTenantContext(tenantId, (tx) =>
         tx.migrationResource.update({
           where: { id: resource.id },
           data: {
             transferredAt: new Date(),
-            objectsTransferred: copiedObjects,
-            bytesTransferred: BigInt(copiedBytes),
+            objectsTransferred: result.objectsTransferred,
+            bytesTransferred: BigInt(result.bytesTransferred),
           },
         }),
       );
 
-      totalObjects += copiedObjects;
-      totalBytes += copiedBytes;
+      totalObjects += result.objectsTransferred;
+      totalBytes += result.bytesTransferred;
     }
 
     await withTenantContext(tenantId, (tx) =>
@@ -236,6 +299,17 @@ export async function runTransfer(transferRunId: string, tenantId: string): Prom
     console.error(`Transfer run ${transferRunId} failed:`, error);
     const message = error instanceof Error ? error.message : "Data transfer failed unexpectedly.";
     await failRun(transferRunId, tenantId, message.slice(0, 500), skipped);
+  } finally {
+    await cleanupSecret(options.rdsCredentialsSecret);
+  }
+}
+
+async function cleanupSecret(secretName: string | undefined) {
+  if (!secretName) return;
+  try {
+    await deleteRdsCredentialsSecret(secretName);
+  } catch (error) {
+    console.warn(`Failed to delete transfer RDS secret ${secretName}:`, error);
   }
 }
 

@@ -2,7 +2,7 @@
 
 CloudShift-G is an enterprise-grade, **multi-tenant** AWS → GCP migration and optimization platform. Any number of customer organizations ("tenants") can register independently and connect their own AWS account; each tenant's data — inventory, reports, jobs, and logs — is isolated from every other tenant at the data, API, and job layers (PostgreSQL row-level security + explicit tenant scoping on every query, not just frontend visibility). Three roles: **Tenant Admin** (connects the AWS account, runs audits, views reports, approves and triggers migrations), **Tenant Member** (read-only access to their own tenant's audits and reports), and **Platform Operator** (a superuser with no tenant of their own — sees every tenant's non-credential metadata, never AWS role ARNs or external IDs). Registration is self-service at `/onboarding` — no manual DB inserts.
 
-This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **multi-tenant self-service onboarding + AWS connection management** (register an org, connect its AWS account, no admin gate or one-tenant cap), **role-based access control** (Tenant Admin / Tenant Member / Platform Operator, enforced at the API layer via a small set of `requireX()` guards — never frontend-only — plus a `POST /api/team` endpoint for adding a second Admin or a Member to an existing tenant), **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), **migration planning** (select resources from a comparison, create a plan, real Tenant Admin approval gate), **Terraform generation** (real HCL generation + a real `terraform validate`/`plan` against your actual GCP project), **migration execution** (a real `terraform apply` — this genuinely provisions billable GCP infrastructure), **verification** (real, live GCP REST health checks confirming provisioned resources are genuinely healthy right now, not just that they were created successfully), **rollback** (a real `terraform destroy`, gated behind a typed confirmation, with Cloud SQL's `deletion_protection` handled automatically), **Jobs** (a tenant-scoped history feed across every audit/comparison/Terraform/apply/verification/rollback run), and **Audit Log** (a record of every admin action — who did what, when, including failed login attempts — distinct from both AWS Infrastructure Auditing and Job History). Data transfer/cutover and the real GKE deployment integration are not built yet — their sidebar links exist but 404 until each is implemented.
+This README covers what's built so far: the **application foundation** (authentication, dashboard shell), **multi-tenant self-service onboarding + AWS connection management** (register an org, connect its AWS account, no admin gate or one-tenant cap), **role-based access control** (Tenant Admin / Tenant Member / Platform Operator, enforced at the API layer via a small set of `requireX()` guards — never frontend-only — plus a `POST /api/team` endpoint for adding a second Admin or a Member to an existing tenant), **AWS infrastructure auditing** (real multi-service AWS inventory, findings, and a browsable Infrastructure catalog), **AWS → GCP comparison** (real service/cost mapping against live AWS Price List + GCP Cloud Billing Catalog pricing), **migration planning** (select resources from a comparison, create a plan, real Tenant Admin approval gate), **Terraform generation** (real HCL generation + a real `terraform validate`/`plan` against your actual GCP project), **migration execution** (a real `terraform apply` — this genuinely provisions billable GCP infrastructure), **verification** (real, live GCP REST health checks confirming provisioned resources are genuinely healthy right now, not just that they were created successfully), **data transfer** (S3→GCS object copy and RDS→Cloud SQL logical dump/import; passwords for RDS are Job-scoped Secrets, never stored in Postgres), **rollback** (a real `terraform destroy`, gated behind a typed confirmation, with Cloud SQL's `deletion_protection` handled automatically), **Jobs** (a tenant-scoped history feed across every audit/comparison/Terraform/apply/verification/rollback/transfer run), and **Audit Log** (a record of every admin action — who did what, when, including failed login attempts — distinct from both AWS Infrastructure Auditing and Job History). EC2/Lambda data transfer remains later; GKE Autopilot `development` is the live deploy target.
 
 ## Tech stack
 
@@ -326,19 +326,31 @@ kubectl -n development scale deploy/cloudshiftg-worker --replicas=1
 - **`terraform validate`/`plan`/`apply` fails with an auth error** — confirm `gcloud auth application-default login` has been run on this machine; Terraform's `google` provider picks up those Application Default Credentials automatically, no key file is used.
 - **An apply partially failed but a resource is missing from the resources table's "Provisioned" column** — check `ApplyRun.applyOutput` for that specific resource's real error; independent resources in one `apply` succeed or fail independently, and only what Terraform's own state file confirms as created gets a `gcpResourceSelfLink`.
 - **I created a real resource by mistake while testing and need to clean it up** — use the Rollback panel on that migration's page (real `terraform destroy`, requires typing the plan's sequence number to confirm). If the plan itself is in a state that blocks that, delete it directly via `gcloud` (e.g. `gcloud compute instances delete <name>`, `gcloud sql instances delete <name>`, `gcloud storage buckets delete <name>`) or the GCP Console — the resource's real name/self-link is in the resources table and in `ApplyRun.terraformState`.
+- **Data transfer fails for RDS with "not publicly accessible"** — v1 requires the Job to reach the RDS endpoint (publicly reachable + security group allowing Job egress, or equivalent). Private-only RDS without VPC peering is out of scope for this slice.
+- **Data transfer fails with wrong password / connection refused** — the Transfer run surfaces the real dump error. Passwords are supplied only when starting transfer (K8s Secret / inline env) and are never stored in Postgres.
+- **S3 data transfer fails with `s3:ListBucket` / `s3:GetObject` AccessDenied** — extend the tenant audit role with object read on the buckets you intend to transfer (Describe alone is not enough for the copy path).
+- **RDS dump/import needs `rds:DescribeDBInstances`** — already on the audit policy; the data plane uses the DB username/password you enter in the Transfer panel, not extra IAM.
 
 ## Roadmap
 
-**Done on GKE `development`:** audit → compare → migrate → Terraform → Apply → Verify → Data transfer v1 (S3→GCS) → Rollback. Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
+**Done on GKE `development`:** audit → compare → migrate → Terraform → Apply → Verify → Data transfer (S3→GCS + RDS→Cloud SQL logical dump/import) → Rollback. Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
 
 **Still pending:**
 
 | Item | Notes |
 |------|--------|
-| RDS → Cloud SQL transfer | Next — dump/restore after S3→GCS v1 |
-| EC2 / Lambda transfer | After RDS |
-| Traffic cutover | DNS / app flip |
+| EC2 / Lambda transfer | Disk/AMI and package transfer — later |
 | GitHub Actions / CI polish | Workflow exists; harden as needed |
 | Production cutover (Phase K) | Prod namespace, secrets, GKE vs Cloud Run |
 | Docs / CI finish (Phase L) | Runbooks beyond this README |
 | Public URL | Paid domain + Ingress — deferred |
+
+### Prove RDS → Cloud SQL (development)
+
+1. Audit an account that has a **small public** MySQL or Postgres RDS (security group must allow the GKE Job egress; private-only RDS fails with a clear error).
+2. Compare → migrate (include that RDS) → Generate Terraform → Apply → wait until Cloud SQL is RUNNABLE.
+3. Open Data transfer, enter the DB password (username optional; defaults to the RDS master user), Start.
+4. Expect Transfer `SUCCEEDED` and the Cloud SQL database to contain the dumped schema/data; wrong password / unreachable host → `FAILED` with the real dump error.
+5. Rollback as usual (destroys the Cloud SQL instance).
+
+Images: `web` / `worker` / `terraform-job` tag `rds-transfer-v1` (Helm revision includes mysql + postgresql clients on Job images).

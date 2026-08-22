@@ -4,7 +4,7 @@ import { useState } from "react";
 import { TerraformPanel, type TerraformRunSummary } from "@/components/migrations/terraform-panel";
 import { ApplyPanel, type ApplyRunSummary } from "@/components/migrations/apply-panel";
 import { VerificationPanel } from "@/components/migrations/verification-panel";
-import { TransferPanel, type TransferRunSummary } from "@/components/migrations/transfer-panel";
+import { TransferPanel, type TransferRunSummary, type TransferRdsTarget } from "@/components/migrations/transfer-panel";
 import type { ComponentProps } from "react";
 
 type VerificationRunSummary = NonNullable<
@@ -18,14 +18,16 @@ export function MigrationExecutionPanels({
   initialVerificationRun,
   initialTransferRun,
   hasEligibleTransferResources,
+  rdsTransferTargets = [],
 }: {
   migrationPlanId: string;
   initialTerraformRun: TerraformRunSummary | null;
   initialApplyRun: ApplyRunSummary | null;
   initialVerificationRun: VerificationRunSummary | null;
   initialTransferRun: TransferRunSummary | null;
-  /** True if the plan includes S3 buckets (provisioning checked after Apply succeeds). */
+  /** True if the plan includes S3 or RDS transfer targets. */
   hasEligibleTransferResources: boolean;
+  rdsTransferTargets?: TransferRdsTarget[];
 }) {
   const [terraformRun, setTerraformRun] = useState(initialTerraformRun);
   const [applyRun, setApplyRun] = useState(initialApplyRun);
@@ -64,6 +66,7 @@ export function MigrationExecutionPanels({
         <TransferPanel
           migrationPlanId={migrationPlanId}
           initialTransferRun={initialTransferRun}
+          rdsTargets={rdsTransferTargets}
         />
       ) : null}
     </>

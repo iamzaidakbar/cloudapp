@@ -4,6 +4,7 @@ import { runTerraformCli } from "@/lib/terraform/run-terraform";
 import { runApply } from "@/lib/terraform/run-apply";
 import { runRollback } from "@/lib/terraform/run-rollback";
 import { runTransfer } from "@/lib/transfer/run-transfer";
+import { TRANSFER_RDS_CREDENTIALS_ENV } from "@/lib/transfer/rds-credentials";
 import type { JobMessage } from "@/lib/jobs/types";
 
 export async function handleJob(job: JobMessage): Promise<void> {
@@ -23,9 +24,19 @@ export async function handleJob(job: JobMessage): Promise<void> {
     case "ROLLBACK":
       await runRollback(job.runId, job.tenantId);
       return;
-    case "DATA_TRANSFER":
-      await runTransfer(job.runId, job.tenantId);
+    case "DATA_TRANSFER": {
+      if (job.rdsCredentials?.length) {
+        process.env[TRANSFER_RDS_CREDENTIALS_ENV] = JSON.stringify(job.rdsCredentials);
+      }
+      try {
+        await runTransfer(job.runId, job.tenantId, {
+          rdsCredentialsSecret: job.rdsCredentialsSecret,
+        });
+      } finally {
+        delete process.env[TRANSFER_RDS_CREDENTIALS_ENV];
+      }
       return;
+    }
     default: {
       const _exhaustive: never = job.type;
       throw new Error(`Unknown job type: ${_exhaustive}`);

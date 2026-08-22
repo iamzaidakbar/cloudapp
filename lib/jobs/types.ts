@@ -6,11 +6,24 @@ export type AppJobType =
   | "ROLLBACK"
   | "DATA_TRANSFER";
 
+export type TransferRdsCredential = {
+  migrationResourceId: string;
+  username?: string;
+  password: string;
+};
+
 export type JobMessage = {
   type: AppJobType;
   tenantId: string;
   runId: string;
   migrationPlanId?: string;
+  /** K8s Secret name holding TRANSFER_RDS_CREDENTIALS (DATA_TRANSFER only). */
+  rdsCredentialsSecret?: string;
+  /**
+   * Inline / local only — never publish to Pub/Sub.
+   * Passwords are not stored in Postgres; cleared after the Job starts.
+   */
+  rdsCredentials?: TransferRdsCredential[];
 };
 
 /** How background work is dispatched. */

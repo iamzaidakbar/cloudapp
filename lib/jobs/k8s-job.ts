@@ -60,6 +60,23 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
     },
   });
 
+  const rdsSecretEnv: k8s.V1EnvVar[] =
+    job.type === "DATA_TRANSFER" && job.rdsCredentialsSecret
+      ? [
+          {
+            name: "TRANSFER_RDS_CREDENTIALS",
+            valueFrom: {
+              secretKeyRef: {
+                name: job.rdsCredentialsSecret,
+                key: "TRANSFER_RDS_CREDENTIALS",
+                optional: false,
+              },
+            },
+          },
+          { name: "JOB_RDS_CREDENTIALS_SECRET", value: job.rdsCredentialsSecret },
+        ]
+      : [];
+
   const mainContainer: k8s.V1Container = {
     name: "terraform-job",
     image,
@@ -78,6 +95,7 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
       secretEnv("AWS_ACCESS_KEY_ID"),
       secretEnv("AWS_SECRET_ACCESS_KEY"),
       secretEnv("AWS_REGION"),
+      ...rdsSecretEnv,
     ],
     resources: {
       requests: { cpu: "250m", memory: "512Mi" },

@@ -5,6 +5,7 @@ import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import { PanelReveal } from "@/components/motion/panel-reveal";
 import { StatusTransition } from "@/components/motion/status-transition";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
@@ -23,6 +24,11 @@ export type TransferRunSummary = {
   skippedResources: unknown;
 };
 
+export type TransferRdsTarget = {
+  id: string;
+  label: string;
+};
+
 const TERMINAL_STATUSES = new Set<TransferRunStatus>(["SUCCEEDED", "FAILED"]);
 const POLL_INTERVAL_MS = 2500;
 
@@ -38,19 +44,28 @@ function formatBytes(value: string | number | bigint | null): string {
 export function TransferPanel({
   migrationPlanId,
   initialTransferRun,
+  rdsTargets = [],
   onRunChange,
 }: {
   migrationPlanId: string;
   initialTransferRun: TransferRunSummary | null;
+  /** Provisioned or planned RDS instances needing passwords at start. */
+  rdsTargets?: TransferRdsTarget[];
   onRunChange?: (run: TransferRunSummary | null) => void;
 }) {
   const [run, setRun] = useState(initialTransferRun);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [passwords, setPasswords] = useState<Record<string, string>>({});
   const onRunChangeRef = useRef(onRunChange);
   onRunChangeRef.current = onRunChange;
 
   const isActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
+  const needsRdsCreds = rdsTargets.length > 0;
+  const rdsCredsReady =
+    !needsRdsCreds ||
+    rdsTargets.every((t) => (passwords[t.id] ?? "").trim().length > 0);
 
   function commitRun(next: TransferRunSummary | null) {
     setRun(next);
@@ -92,7 +107,24 @@ export function TransferPanel({
     setIsStarting(true);
     setError(null);
 
-    const response = await fetch(`/api/migrations/${migrationPlanId}/transfer`, { method: "POST" });
+    const payload =
+      needsRdsCreds
+        ? {
+            rdsCredentials: rdsTargets.map((t) => ({
+              migrationResourceId: t.id,
+              password: passwords[t.id] ?? "",
+              ...(usernames[t.id]?.trim()
+                ? { username: usernames[t.id].trim() }
+                : {}),
+            })),
+          }
+        : {};
+
+    const response = await fetch(`/api/migrations/${migrationPlanId}/transfer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
     const body = await response.json();
 
     if (!response.ok || !body.success) {
@@ -101,6 +133,8 @@ export function TransferPanel({
       return;
     }
 
+    // Clear passwords from the form after a successful start.
+    setPasswords({});
     commitRun(body.data.transferRun);
     setIsStarting(false);
   }
@@ -115,10 +149,14 @@ export function TransferPanel({
               Data transfer
             </h2>
             <p className="text-xs text-muted-foreground">
-              Copies S3 objects into the provisioned GCS buckets (v1)
+              S3 → GCS and RDS → Cloud SQL (logical dump/import)
             </p>
           </div>
-          <Button type="button" onClick={handleStart} disabled={isStarting || isActive}>
+          <Button
+            type="button"
+            onClick={handleStart}
+            disabled={isStarting || isActive || !rdsCredsReady}
+          >
             {isStarting || isActive ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
@@ -135,9 +173,43 @@ export function TransferPanel({
 
         <div className="flex flex-col gap-3 p-4 md:p-5">
           <p className="text-xs text-muted-foreground">
-            Copies every object from each provisioned S3 bucket into its matching GCS bucket, then
-            verifies object count and total size. Other resource types on this plan are skipped.
+            Copies S3 objects into matching GCS buckets and/or dumps provisioned RDS instances into
+            Cloud SQL. Passwords are sent only to start the Job and are not stored in the database.
+            RDS must be reachable from the Job (public endpoint + security group, or equivalent).
           </p>
+
+          {needsRdsCreds ? (
+            <div className="flex flex-col gap-3 border border-border p-3">
+              <p className="text-xs font-medium text-foreground">RDS credentials</p>
+              {rdsTargets.map((target) => (
+                <div key={target.id} className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">{target.label}</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Input
+                      type="text"
+                      autoComplete="off"
+                      placeholder="Username (optional — defaults to master)"
+                      value={usernames[target.id] ?? ""}
+                      disabled={isStarting || isActive}
+                      onChange={(e) =>
+                        setUsernames((prev) => ({ ...prev, [target.id]: e.target.value }))
+                      }
+                    />
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Password (required)"
+                      value={passwords[target.id] ?? ""}
+                      disabled={isStarting || isActive}
+                      onChange={(e) =>
+                        setPasswords((prev) => ({ ...prev, [target.id]: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {error ? (
             <Alert variant="destructive">
@@ -178,9 +250,9 @@ export function TransferPanel({
 
               {run.status === "SUCCEEDED" ? (
                 <p className="text-sm text-foreground">
-                  Copied {run.objectsCopied ?? 0} object
+                  Transferred {run.objectsCopied ?? 0} object
                   {(run.objectsCopied ?? 0) === 1 ? "" : "s"} ({formatBytes(run.bytesCopied)}) —
-                  see the resource table for per-bucket totals.
+                  see the resource table for per-resource totals.
                 </p>
               ) : null}
             </div>

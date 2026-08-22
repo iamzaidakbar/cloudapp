@@ -41,6 +41,7 @@ async function main() {
       runId: oneShotRunId,
       tenantId: oneShotTenantId,
       migrationPlanId: process.env.JOB_MIGRATION_PLAN_ID,
+      rdsCredentialsSecret: process.env.JOB_RDS_CREDENTIALS_SECRET?.trim() || undefined,
     });
     return;
   }

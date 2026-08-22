@@ -33,7 +33,7 @@ export async function createTransferRun(tenantId: string, migrationPlanId: strin
   );
 }
 
-export async function reconcileStaleTransferRuns(tenantId: string, staleAfterMs = 60 * 60 * 1000) {
+export async function reconcileStaleTransferRuns(tenantId: string, staleAfterMs = 3 * 60 * 60 * 1000) {
   const staleBefore = new Date(Date.now() - staleAfterMs);
   const queuedBefore = new Date(Date.now() - 15 * 60 * 1000);
 
