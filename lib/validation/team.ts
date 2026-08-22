@@ -7,3 +7,9 @@ export const addTeamMemberSchema = z.object({
 });
 
 export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>;
+
+export const updateTeamMemberRoleSchema = z.object({
+  role: z.enum(["TENANT_ADMIN", "TENANT_MEMBER"]),
+});
+
+export type UpdateTeamMemberRoleInput = z.infer<typeof updateTeamMemberRoleSchema>;

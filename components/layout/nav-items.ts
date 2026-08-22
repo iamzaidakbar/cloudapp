@@ -7,6 +7,7 @@ import {
   ListChecks,
   FileClock,
   Settings,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -16,7 +17,7 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
-/** Primary sidebar links (Settings is pinned separately at the bottom). */
+/** Primary sidebar links (Settings / Team are pinned separately at the bottom). */
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Infrastructure", href: "/infrastructure", icon: Server },
@@ -26,6 +27,12 @@ export const navItems: NavItem[] = [
   { label: "Jobs", href: "/jobs", icon: ListChecks },
   { label: "Audit Log", href: "/audit-log", icon: FileClock },
 ];
+
+export const teamNavItem: NavItem = {
+  label: "Team",
+  href: "/settings/team",
+  icon: Users,
+};
 
 export const settingsNavItem: NavItem = {
   label: "Settings",

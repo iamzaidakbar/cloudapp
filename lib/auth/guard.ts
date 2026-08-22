@@ -13,7 +13,14 @@ export async function getCurrentAdmin() {
 
   return prisma.admin.findUnique({
     where: { id: session.adminId },
-    select: { id: true, email: true, name: true, role: true, tenantId: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      tenantId: true,
+      mustChangePassword: true,
+    },
   });
 }
 

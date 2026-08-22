@@ -5,6 +5,8 @@ import { env } from "@/lib/env";
 export interface SessionData {
   adminId?: string;
   email?: string;
+  /** Stashed at login for proxy-friendly redirects; guards still re-read role from DB. */
+  role?: string;
 }
 
 export const sessionOptions: SessionOptions = {

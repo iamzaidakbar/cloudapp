@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AdminActionType" ADD VALUE 'PASSWORD_CHANGED';

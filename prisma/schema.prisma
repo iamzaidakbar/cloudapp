@@ -652,6 +652,9 @@ enum AdminActionType {
   DATA_TRANSFER_STARTED
   MIGRATION_ROLLED_BACK
   TEAM_MEMBER_ADDED
+  TEAM_MEMBER_REMOVED
+  TEAM_MEMBER_ROLE_CHANGED
+  PASSWORD_CHANGED
 }
 
 // RLS'd like every other tenant-scoped table (see the hand-written RLS

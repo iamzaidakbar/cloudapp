@@ -13,3 +13,9 @@ export async function listTeamMembers(tenantId: string) {
     orderBy: { createdAt: "asc" },
   });
 }
+
+export {
+  isProtectedTeamEmail,
+  teamMemberDeleteBlockReason,
+  teamMemberRoleChangeBlockReason,
+} from "@/lib/team-shared";

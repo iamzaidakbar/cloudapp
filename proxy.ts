@@ -34,7 +34,12 @@ export const config = {
 };
 
 export async function proxy(request: NextRequest) {
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
   const session = await getIronSession<SessionData>(request, response, sessionOptions);
   const isAuthed = Boolean(session.adminId);
 
@@ -47,7 +52,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isAuthed && request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const home =
+      session.role === "PLATFORM_OPERATOR" ? "/platform" : "/dashboard";
+    return NextResponse.redirect(new URL(home, request.url));
   }
 
   return response;

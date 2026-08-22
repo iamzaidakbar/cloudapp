@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
     session.adminId = admin.id;
     session.email = admin.email;
+    session.role = admin.role;
     await session.save();
 
     await prisma.admin.update({
@@ -48,7 +49,13 @@ export async function POST(request: NextRequest) {
     await logAdminAction({ adminId: admin.id, adminEmail: admin.email, action: "LOGIN_SUCCEEDED", ipAddress });
 
     return apiSuccess({
-      admin: { id: admin.id, email: admin.email, name: admin.name },
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+        mustChangePassword: admin.mustChangePassword,
+      },
     });
   } catch (error) {
     console.error("Login failed:", error);

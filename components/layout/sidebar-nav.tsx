@@ -6,11 +6,22 @@ import { cn } from "@/lib/utils";
 import {
   navItems,
   settingsNavItem,
+  teamNavItem,
   type NavItem,
 } from "@/components/layout/nav-items";
 
 const WORKFLOW = navItems.slice(0, 5);
 const MONITOR = navItems.slice(5);
+
+function isNavActive(pathname: string, href: string) {
+  // Settings owns /settings and nested pages except Team (its own nav item).
+  if (href === "/settings") {
+    if (pathname === "/settings") return true;
+    if (!pathname.startsWith("/settings/")) return false;
+    return !pathname.startsWith("/settings/team");
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 function NavLink({
   item,
@@ -20,8 +31,7 @@ function NavLink({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const isActive =
-    pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const isActive = isNavActive(pathname, item.href);
   const Icon = item.icon;
 
   return (
@@ -79,10 +89,11 @@ export function SidebarSettingsLink({
   onNavigate?: () => void;
 }) {
   return (
-    <nav>
+    <nav className="flex flex-col gap-1">
       <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         Account
       </p>
+      <NavLink item={teamNavItem} onNavigate={onNavigate} />
       <NavLink item={settingsNavItem} onNavigate={onNavigate} />
     </nav>
   );

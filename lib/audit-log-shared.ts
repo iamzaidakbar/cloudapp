@@ -22,6 +22,9 @@ export const ADMIN_ACTION_TYPES = [
   "DATA_TRANSFER_STARTED",
   "MIGRATION_ROLLED_BACK",
   "TEAM_MEMBER_ADDED",
+  "TEAM_MEMBER_REMOVED",
+  "TEAM_MEMBER_ROLE_CHANGED",
+  "PASSWORD_CHANGED",
 ] as const;
 
 export type AdminActionTypeValue = (typeof ADMIN_ACTION_TYPES)[number];
@@ -44,4 +47,7 @@ export const ADMIN_ACTION_LABEL: Record<AdminActionTypeValue, string> = {
   DATA_TRANSFER_STARTED: "Data Transfer Started",
   MIGRATION_ROLLED_BACK: "Migration Rolled Back",
   TEAM_MEMBER_ADDED: "Team Member Added",
+  TEAM_MEMBER_REMOVED: "Team Member Removed",
+  TEAM_MEMBER_ROLE_CHANGED: "Team Member Role Changed",
+  PASSWORD_CHANGED: "Password Changed",
 };

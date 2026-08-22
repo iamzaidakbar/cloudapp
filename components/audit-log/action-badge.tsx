@@ -22,6 +22,9 @@ const ACTION_TONE: Record<AdminActionTypeValue, StatusTone> = {
   DATA_TRANSFER_STARTED: "active",
   MIGRATION_ROLLED_BACK: "danger",
   TEAM_MEMBER_ADDED: "active",
+  TEAM_MEMBER_REMOVED: "danger",
+  TEAM_MEMBER_ROLE_CHANGED: "active",
+  PASSWORD_CHANGED: "success",
 };
 
 export function ActionBadge({ action }: { action: AdminActionTypeValue }) {

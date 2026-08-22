@@ -48,8 +48,18 @@ Fill in `.env`:
 
 ## Database setup
 
+Copy `.env.example` → `.env` and set `SESSION_SECRET` (and Platform Operator creds) before the first `compose up`.
+
 ```bash
-docker compose up -d          # starts local Postgres on :5432, plus one-time role setup (see below)
+docker compose up -d          # Postgres + Next.js (`npm run dev`) on :3000
+```
+
+The `web` container waits for a healthy Postgres, runs `prisma migrate deploy`, seeds the Platform Operator when `PLATFORM_OPERATOR_*` are set, then starts `npm run dev` (bound to `0.0.0.0:3000`). Source is bind-mounted for hot reload.
+
+**Postgres only** (app on the host instead):
+
+```bash
+docker compose up -d postgres
 npm run prisma:migrate        # applies migrations (prompts for a name on first run; use "init")
 npm run prisma:seed           # creates/updates the Platform Operator from PLATFORM_OPERATOR_EMAIL/_PASSWORD
 ```
@@ -60,7 +70,18 @@ On first container creation, `db/init/01-create-app-role.sql` automatically crea
 
 ## Running locally
 
+**All-in-one (recommended):** ensure `.env` exists, then:
+
 ```bash
+docker compose up -d
+# App: http://localhost:3000  ·  Postgres: localhost:5432
+# Logs: docker compose logs -f web
+```
+
+**Host Next.js** (Postgres still via Compose):
+
+```bash
+docker compose up -d postgres
 npm run dev
 # Optional (only if JOB_RUNTIME=pubsub locally):
 # npm run worker
@@ -142,7 +163,8 @@ prisma/
   schema.prisma, seed.ts, migrations/
 db/init/                    One-time Postgres role setup (mounted into the container)
 proxy.ts                    Route guard (Next.js 16's replacement for middleware.ts)
-docker-compose.yml           Local Postgres
+docker-compose.yml           Local Postgres + Next.js dev (`web`)
+Dockerfile.dev               Dev image for compose `web` service
 Dockerfile*                 web / worker / terraform-job images
 ```
 
@@ -182,7 +204,8 @@ Dockerfile*                 web / worker / terraform-job images
 
 | Script | Purpose |
 |---|---|
-| `npm run dev` | Start the dev server |
+| `npm run dev` | Start the Next.js server on the host |
+| `docker compose up -d` | Start Postgres + Next.js (`npm run dev` in `web`) |
 | `npm run build` / `npm run start` | Production build / start |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -243,8 +266,8 @@ kubectl -n development scale deploy/cloudshiftg-worker --replicas=1
 ## Verification checklist
 
 **Foundation**
-1. `docker compose up -d`, then `npm run prisma:migrate` and `npm run prisma:seed`.
-2. `npm run dev`, open the app — redirected to `/login`. Wrong password shows a real error. Correct login redirects to `/dashboard` with a real summary card.
+1. Copy `.env.example` → `.env`, then `docker compose up -d` (Postgres + migrate/seed + `npm run dev`). Or: `docker compose up -d postgres`, then migrate/seed/`npm run dev` on the host.
+2. Open the app — redirected to `/login`. Wrong password shows a real error. Correct login redirects by role (`/platform` or `/dashboard`).
 3. Logout clears the session cookie and redirects to `/login`.
 
 **Onboarding + AWS Connection**

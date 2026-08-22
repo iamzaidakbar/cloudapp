@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
     session.adminId = result.admin.id;
     session.email = result.admin.email;
+    session.role = result.admin.role;
     await session.save();
 
     await logAdminAction({

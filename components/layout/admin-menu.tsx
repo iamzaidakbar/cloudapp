@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -12,11 +12,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { roleLabel } from "@/lib/auth/home-path";
 
 type AdminMenuProps = {
-  admin: { email: string; name: string | null };
+  admin: {
+    email: string;
+    name: string | null;
+    role?: string;
+  };
   variant?: "navbar" | "inline";
   className?: string;
+  hideSettings?: boolean;
 };
 
 function initialsFor(name: string | null, email: string) {
@@ -30,11 +36,14 @@ export function AdminMenu({
   admin,
   variant = "navbar",
   className,
+  hideSettings = false,
 }: AdminMenuProps) {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const initials = initialsFor(admin.name, admin.email);
   const displayName = admin.name || "Admin";
+  const showSettings =
+    !hideSettings && admin.role !== "PLATFORM_OPERATOR";
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -79,8 +88,22 @@ export function AdminMenu({
             {displayName}
           </p>
           <p className="truncate text-xs text-muted-foreground">{admin.email}</p>
+          {admin.role ? (
+            <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {roleLabel(admin.role)}
+            </p>
+          ) : null}
         </div>
         <DropdownMenuSeparator />
+        {showSettings ? (
+          <>
+            <DropdownMenuItem onClick={() => router.push("/settings")}>
+              <Settings className="size-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem
           variant="destructive"
           disabled={isLoggingOut}

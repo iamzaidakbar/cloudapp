@@ -15,6 +15,9 @@ export default async function PlatformLayout({
   if (!admin) {
     redirect("/login");
   }
+  if (admin.mustChangePassword) {
+    redirect("/settings/password");
+  }
   if (admin.role !== "PLATFORM_OPERATOR") {
     redirect("/dashboard");
   }

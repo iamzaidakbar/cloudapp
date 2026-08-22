@@ -39,7 +39,20 @@ export function LoginForm() {
       return;
     }
 
-    router.push("/dashboard");
+    const admin = body.data?.admin as
+      | {
+          role?: string;
+          mustChangePassword?: boolean;
+        }
+      | undefined;
+
+    if (admin?.mustChangePassword) {
+      router.push("/settings/password");
+    } else if (admin?.role === "PLATFORM_OPERATOR") {
+      router.push("/platform");
+    } else {
+      router.push("/dashboard");
+    }
     router.refresh();
   }
 
