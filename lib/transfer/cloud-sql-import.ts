@@ -1,6 +1,12 @@
 import { Storage } from "@google-cloud/storage";
 import { randomBytes } from "node:crypto";
 import { getAccessToken } from "@/lib/gcp/auth";
+import {
+  ensureTransferBucket,
+  transferBucketName,
+} from "@/lib/transfer/transfer-bucket";
+
+export { ensureTransferBucket, transferBucketName };
 
 const SQL_ADMIN = "https://sqladmin.googleapis.com/v1";
 
@@ -180,24 +186,6 @@ async function grantCloudSqlSaRead(
   }
   policy.bindings = bindings;
   await bucket.iam.setPolicy(policy);
-}
-
-export function transferBucketName(projectId: string): string {
-  return `${projectId}-cloudshiftg-transfer`;
-}
-
-export async function ensureTransferBucket(projectId: string): Promise<string> {
-  const storage = new Storage();
-  const name = transferBucketName(projectId);
-  const bucket = storage.bucket(name);
-  const [exists] = await bucket.exists();
-  if (!exists) {
-    await storage.createBucket(name, {
-      location: process.env.GCP_REGION?.trim() || "us-east1",
-      uniformBucketLevelAccess: true,
-    });
-  }
-  return name;
 }
 
 export async function uploadSqlDump(

@@ -29,6 +29,15 @@ export async function runTerraformCli(terraformRunId: string, tenantId: string):
 
   let workDir: string | null = null;
   try {
+    if (run.terraformConfig.includes("google_cloudfunctions2_function")) {
+      const projectId =
+        process.env.GCP_PROJECT_ID?.trim() || process.env.GOOGLE_CLOUD_PROJECT?.trim();
+      if (projectId) {
+        const { ensureLambdaPlaceholderZip } = await import("@/lib/transfer/lambda-placeholder");
+        await ensureLambdaPlaceholderZip(projectId);
+      }
+    }
+
     workDir = await mkdtemp(path.join(tmpdir(), "cloudshiftg-tf-"));
     await writeFile(path.join(workDir, "main.tf"), run.terraformConfig, "utf8");
 

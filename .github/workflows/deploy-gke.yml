@@ -25,6 +25,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    concurrency:
+      group: deploy-gke-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
+      cancel-in-progress: false
+    environment: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment || 'staging' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -100,3 +104,14 @@ jobs:
             --set serviceAccount.terraformJob.gcpServiceAccount="$TF_JOB_GSA" \
             --set secrets.awsOptional=false \
             --wait --timeout 15m
+
+      - name: Rollout status
+        env:
+          NS: ${{ steps.target.outputs.ns }}
+        run: |
+          kubectl -n "$NS" rollout status deploy/cloudshiftg-web --timeout=5m
+          # Worker may be scaled to 0 (SSD Strategy B); only wait when desired > 0.
+          DESIRED=$(kubectl -n "$NS" get deploy cloudshiftg-worker -o jsonpath='{.spec.replicas}')
+          if [ "${DESIRED:-0}" != "0" ]; then
+            kubectl -n "$NS" rollout status deploy/cloudshiftg-worker --timeout=5m
+          fi

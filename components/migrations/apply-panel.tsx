@@ -38,7 +38,9 @@ export function ApplyPanel({
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onRunChangeRef = useRef(onRunChange);
-  onRunChangeRef.current = onRunChange;
+  useEffect(() => {
+    onRunChangeRef.current = onRunChange;
+  }, [onRunChange]);
 
   const isActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
 
@@ -75,7 +77,6 @@ export function ApplyPanel({
       cancelled = true;
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [migrationPlanId, isActive, run?.id]);
 
   async function handleExecute() {

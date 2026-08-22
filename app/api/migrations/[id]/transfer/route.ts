@@ -99,10 +99,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const eligibleRds = plan.resources.filter(
       (r) => r.awsService === "RDS_INSTANCE" && r.gcpResourceSelfLink,
     );
+    const eligibleLambda = plan.resources.filter(
+      (r) => r.awsService === "LAMBDA_FUNCTION" && r.gcpResourceSelfLink,
+    );
+    const eligibleEc2 = plan.resources.filter(
+      (r) => r.awsService === "EC2_INSTANCE" && r.gcpResourceSelfLink,
+    );
 
-    if (eligibleS3.length === 0 && eligibleRds.length === 0) {
+    if (
+      eligibleS3.length === 0 &&
+      eligibleRds.length === 0 &&
+      eligibleLambda.length === 0 &&
+      eligibleEc2.length === 0
+    ) {
       return apiError(
-        "No provisioned S3→GCS or RDS→Cloud SQL resources on this plan — run Apply first",
+        "No provisioned transfer targets on this plan (S3, RDS, Lambda, or EC2) — run Apply first",
         400,
       );
     }

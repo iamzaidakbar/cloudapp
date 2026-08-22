@@ -4,9 +4,8 @@ cloudsql:
   enabled: true
 
 migrate:
-  # Set true on first install / schema changes. Migrations for Phase A were
-  # applied during the initial prove-out; leave false to avoid hook stalls.
-  enabled: false
+  # Safe with hook-failed delete policy on the migrate Job template.
+  enabled: true
 
 web:
   replicas: 1

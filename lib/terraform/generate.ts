@@ -128,9 +128,10 @@ resource "google_sql_database_instance" "${name}" {
 `.trim();
 }
 
-function lambdaBlock(resource: TerraformSourceResource): string {
+function lambdaBlock(resource: TerraformSourceResource, projectId: string): string {
   const name = slug(resource.awsResourceId);
   const region = toGcpRegion(resource.region);
+  const bucket = `${projectId}-cloudshiftg-transfer`;
 
   return hcl`
 resource "google_cloudfunctions2_function" "${name}" {
@@ -141,15 +142,13 @@ resource "google_cloudfunctions2_function" "${name}" {
     runtime     = "nodejs20"
     entry_point = "handler"
 
-    # TODO: this app never collected the source Lambda's actual code —
-    # point this at a real source archive before applying. A structurally
-    # valid placeholder is generated here rather than a fake artifact
-    # reference, so \`terraform validate\` genuinely passes without pretending
-    # there's a real deployable package.
+    # Placeholder zip is ensured in the transfer bucket before plan/apply
+    # (\`ensureLambdaPlaceholderZip\`). Data transfer replaces this with the
+    # real Lambda package after Apply.
     source {
       storage_source {
-        bucket = "REPLACE_WITH_SOURCE_BUCKET"
-        object = "REPLACE_WITH_SOURCE_OBJECT.zip"
+        bucket = "${bucket}"
+        object = "placeholders/lambda-stub.zip"
       }
     }
   }
@@ -198,7 +197,7 @@ provider "google" {
       case "RDS_INSTANCE":
         return rdsBlock(resource, options.disableDeletionProtection ?? false);
       case "LAMBDA_FUNCTION":
-        return lambdaBlock(resource);
+        return lambdaBlock(resource, projectId);
       default:
         return `# Skipped ${resource.awsResourceId} (${resource.awsService}) — no Terraform mapping for this service.`;
     }

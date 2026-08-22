@@ -25,7 +25,7 @@ export function MigrationExecutionPanels({
   initialApplyRun: ApplyRunSummary | null;
   initialVerificationRun: VerificationRunSummary | null;
   initialTransferRun: TransferRunSummary | null;
-  /** True if the plan includes S3 or RDS transfer targets. */
+  /** True if the plan includes S3, RDS, Lambda, or EC2 transfer targets. */
   hasEligibleTransferResources: boolean;
   rdsTransferTargets?: TransferRdsTarget[];
 }) {

@@ -59,7 +59,9 @@ export function TransferPanel({
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const onRunChangeRef = useRef(onRunChange);
-  onRunChangeRef.current = onRunChange;
+  useEffect(() => {
+    onRunChangeRef.current = onRunChange;
+  }, [onRunChange]);
 
   const isActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
   const needsRdsCreds = rdsTargets.length > 0;
@@ -100,7 +102,6 @@ export function TransferPanel({
       cancelled = true;
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [migrationPlanId, isActive, run?.id]);
 
   async function handleStart() {
@@ -149,7 +150,7 @@ export function TransferPanel({
               Data transfer
             </h2>
             <p className="text-xs text-muted-foreground">
-              S3 → GCS and RDS → Cloud SQL (logical dump/import)
+              S3 → GCS, RDS → Cloud SQL, Lambda zip → Cloud Functions, EC2 AMI → GCE image
             </p>
           </div>
           <Button
@@ -173,9 +174,10 @@ export function TransferPanel({
 
         <div className="flex flex-col gap-3 p-4 md:p-5">
           <p className="text-xs text-muted-foreground">
-            Copies S3 objects into matching GCS buckets and/or dumps provisioned RDS instances into
-            Cloud SQL. Passwords are sent only to start the Job and are not stored in the database.
-            RDS must be reachable from the Job (public endpoint + security group, or equivalent).
+            Copies S3 objects, dumps RDS into Cloud SQL, uploads Lambda zip packages onto Cloud
+            Functions, and exports EC2 AMIs into GCE boot images (root volume). RDS passwords are
+            Job-scoped only. EC2 export needs a vmimport role; private-only paths fail with a clear
+            error.
           </p>
 
           {needsRdsCreds ? (

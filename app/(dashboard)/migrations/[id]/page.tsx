@@ -45,7 +45,11 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   // written during Apply; requiring it at SSR hides the Transfer panel until
   // a full refresh even after Apply polls SUCCEEDED client-side.
   const hasTransferTargets = plan.resources.some(
-    (r) => r.awsService === "S3_BUCKET" || r.awsService === "RDS_INSTANCE",
+    (r) =>
+      r.awsService === "S3_BUCKET" ||
+      r.awsService === "RDS_INSTANCE" ||
+      r.awsService === "LAMBDA_FUNCTION" ||
+      r.awsService === "EC2_INSTANCE",
   );
   const rdsTransferTargets = plan.resources
     .filter((r) => r.awsService === "RDS_INSTANCE")

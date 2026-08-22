@@ -10,6 +10,8 @@ import {
   loadRdsCredentialsFromEnv,
 } from "@/lib/transfer/rds-credentials";
 import { transferRdsInstance } from "@/lib/transfer/rds";
+import { transferLambdaFunction } from "@/lib/transfer/lambda";
+import { transferEc2Instance } from "@/lib/transfer/ec2";
 import { deleteRdsCredentialsSecret } from "@/lib/transfer/rds-credentials-secret";
 import {
   S3Client,
@@ -17,6 +19,13 @@ import {
   GetObjectCommand,
   type _Object,
 } from "@aws-sdk/client-s3";
+
+const TRANSFER_SERVICES = new Set([
+  "S3_BUCKET",
+  "RDS_INSTANCE",
+  "LAMBDA_FUNCTION",
+  "EC2_INSTANCE",
+]);
 
 type SkippedResource = {
   migrationResourceId: string;
@@ -115,12 +124,13 @@ export async function runTransfer(
   const rdsCredentials = loadRdsCredentialsFromEnv();
   const skipped: SkippedResource[] = [];
   const eligible = resources.filter((r) => {
-    if (r.awsService !== "S3_BUCKET" && r.awsService !== "RDS_INSTANCE") {
+    if (!TRANSFER_SERVICES.has(r.awsService)) {
       skipped.push({
         migrationResourceId: r.id,
         awsService: r.awsService,
         awsResourceId: r.awsResourceId,
-        reason: "not supported for data transfer (S3→GCS and RDS→Cloud SQL only)",
+        reason:
+          "not supported for data transfer (S3, RDS, Lambda zip, EC2 AMI→GCE image only)",
       });
       return false;
     }
@@ -153,7 +163,7 @@ export async function runTransfer(
           status: "FAILED",
           finishedAt: new Date(),
           errorMessage:
-            "No provisioned S3→GCS or RDS→Cloud SQL resources to transfer (check credentials for RDS).",
+            "No provisioned transfer targets (S3 / RDS / Lambda / EC2). Check Apply and RDS passwords.",
           objectsCopied: 0,
           bytesCopied: BigInt(0),
           skippedResources: skipped,
@@ -250,36 +260,91 @@ export async function runTransfer(
         continue;
       }
 
-      // RDS_INSTANCE
-      const rdsCred = credentialForResource(rdsCredentials, resource.id);
-      if (!rdsCred) {
-        throw new Error(`Missing RDS credentials for ${resource.awsResourceId}`);
+      if (resource.awsService === "RDS_INSTANCE") {
+        const rdsCred = credentialForResource(rdsCredentials, resource.id);
+        if (!rdsCred) {
+          throw new Error(`Missing RDS credentials for ${resource.awsResourceId}`);
+        }
+
+        const result = await transferRdsInstance({
+          awsCredentials: awsCreds,
+          region: resource.region || "us-east-1",
+          awsResourceId: resource.awsResourceId,
+          gcpResourceSelfLink: resource.gcpResourceSelfLink,
+          migrationPlanId: transferRun.migrationPlanId,
+          migrationResourceId: resource.id,
+          credential: rdsCred,
+          projectId,
+        });
+
+        await withTenantContext(tenantId, (tx) =>
+          tx.migrationResource.update({
+            where: { id: resource.id },
+            data: {
+              transferredAt: new Date(),
+              objectsTransferred: result.objectsTransferred,
+              bytesTransferred: BigInt(result.bytesTransferred),
+            },
+          }),
+        );
+
+        totalObjects += result.objectsTransferred;
+        totalBytes += result.bytesTransferred;
+        continue;
       }
 
-      const result = await transferRdsInstance({
-        awsCredentials: awsCreds,
-        region: resource.region || "us-east-1",
-        awsResourceId: resource.awsResourceId,
-        gcpResourceSelfLink: resource.gcpResourceSelfLink,
-        migrationPlanId: transferRun.migrationPlanId,
-        migrationResourceId: resource.id,
-        credential: rdsCred,
-        projectId,
-      });
+      if (resource.awsService === "LAMBDA_FUNCTION") {
+        const result = await transferLambdaFunction({
+          awsCredentials: awsCreds,
+          region: resource.region || "us-east-1",
+          awsResourceId: resource.awsResourceId,
+          gcpResourceSelfLink: resource.gcpResourceSelfLink,
+          migrationPlanId: transferRun.migrationPlanId,
+          migrationResourceId: resource.id,
+          projectId,
+        });
 
-      await withTenantContext(tenantId, (tx) =>
-        tx.migrationResource.update({
-          where: { id: resource.id },
-          data: {
-            transferredAt: new Date(),
-            objectsTransferred: result.objectsTransferred,
-            bytesTransferred: BigInt(result.bytesTransferred),
-          },
-        }),
-      );
+        await withTenantContext(tenantId, (tx) =>
+          tx.migrationResource.update({
+            where: { id: resource.id },
+            data: {
+              transferredAt: new Date(),
+              objectsTransferred: result.objectsTransferred,
+              bytesTransferred: BigInt(result.bytesTransferred),
+            },
+          }),
+        );
 
-      totalObjects += result.objectsTransferred;
-      totalBytes += result.bytesTransferred;
+        totalObjects += result.objectsTransferred;
+        totalBytes += result.bytesTransferred;
+        continue;
+      }
+
+      if (resource.awsService === "EC2_INSTANCE") {
+        const result = await transferEc2Instance({
+          awsCredentials: awsCreds,
+          region: resource.region || "us-east-1",
+          awsResourceId: resource.awsResourceId,
+          gcpResourceSelfLink: resource.gcpResourceSelfLink,
+          migrationPlanId: transferRun.migrationPlanId,
+          migrationResourceId: resource.id,
+          projectId,
+        });
+
+        await withTenantContext(tenantId, (tx) =>
+          tx.migrationResource.update({
+            where: { id: resource.id },
+            data: {
+              transferredAt: new Date(),
+              objectsTransferred: result.objectsTransferred,
+              bytesTransferred: BigInt(result.bytesTransferred),
+            },
+          }),
+        );
+
+        totalObjects += result.objectsTransferred;
+        totalBytes += result.bytesTransferred;
+      }
     }
 
     await withTenantContext(tenantId, (tx) =>

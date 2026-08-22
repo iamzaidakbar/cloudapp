@@ -40,6 +40,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
 
     const resources = await getTerraformSourceResources(admin.tenantId, id);
+    if (resources.some((r) => r.awsService === "LAMBDA_FUNCTION")) {
+      const { ensureLambdaPlaceholderZip } = await import("@/lib/transfer/lambda-placeholder");
+      await ensureLambdaPlaceholderZip(env.GCP_PROJECT_ID);
+    }
     const terraformConfig = generateTerraformConfig(resources, env.GCP_PROJECT_ID);
     const terraformRun = await createTerraformRun(admin.tenantId, id, terraformConfig);
 

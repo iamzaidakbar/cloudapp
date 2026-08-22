@@ -1,4 +1,8 @@
 environment: production
+
+migrate:
+  enabled: true
+
 web:
   replicas: 3
   hpa:

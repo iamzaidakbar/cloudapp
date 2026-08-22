@@ -4,8 +4,8 @@ cloudsql:
   enabled: true
 
 migrate:
-  # First staging install ran migrate via Helm hook. Keep false for upgrades.
-  enabled: false
+  # Safe with hook-failed delete policy on the migrate Job template.
+  enabled: true
 
 web:
   replicas: 1

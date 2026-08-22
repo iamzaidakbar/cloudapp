@@ -56,7 +56,9 @@ export function TerraformPanel({
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onRunChangeRef = useRef(onRunChange);
-  onRunChangeRef.current = onRunChange;
+  useEffect(() => {
+    onRunChangeRef.current = onRunChange;
+  }, [onRunChange]);
 
   const isActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
 
@@ -94,7 +96,6 @@ export function TerraformPanel({
       clearInterval(interval);
     };
     // Re-subscribe when a new run starts or leaves a terminal state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [migrationPlanId, isActive, run?.id]);
 
   async function handleGenerate() {

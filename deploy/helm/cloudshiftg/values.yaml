@@ -2,7 +2,7 @@ fullname: cloudshiftg
 environment: development
 
 image:
-  registry: us-central1-docker.pkg.dev/PROJECT/cloudshiftg
+  registry: us-east1-docker.pkg.dev/PROJECT/cloudshiftg
   webTag: latest
   workerTag: latest
   terraformJobTag: latest

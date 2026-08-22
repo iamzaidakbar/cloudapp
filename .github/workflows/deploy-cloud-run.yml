@@ -11,7 +11,9 @@ on:
         options: [web, worker]
 
 env:
-  REGION: us-central1
+  # Align with GKE Artifact Registry (us-east1). Cloud Run remains a parallel /
+  # legacy path — prefer Deploy GKE for the primary stack.
+  REGION: us-east1
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   AR_REPO: cloudshiftg
 

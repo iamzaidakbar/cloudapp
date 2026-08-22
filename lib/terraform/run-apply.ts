@@ -79,6 +79,15 @@ export async function runApply(applyRunId: string, tenantId: string): Promise<vo
 
   let workDir: string | null = null;
   try {
+    if (terraformRun.terraformConfig.includes("google_cloudfunctions2_function")) {
+      const projectId =
+        process.env.GCP_PROJECT_ID?.trim() || process.env.GOOGLE_CLOUD_PROJECT?.trim();
+      if (projectId) {
+        const { ensureLambdaPlaceholderZip } = await import("@/lib/transfer/lambda-placeholder");
+        await ensureLambdaPlaceholderZip(projectId);
+      }
+    }
+
     workDir = await mkdtemp(path.join(tmpdir(), "cloudshiftg-apply-"));
     await writeFile(path.join(workDir, "main.tf"), terraformRun.terraformConfig, "utf8");
 
