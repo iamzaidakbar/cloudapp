@@ -22,6 +22,7 @@ export async function assumeTenantRole(
   roleArn: string,
   externalId: string,
   sessionName: string,
+  durationSeconds = 900,
 ): Promise<AssumedRoleCredentials> {
   const client = new STSClient({ region: region() });
 
@@ -30,7 +31,7 @@ export async function assumeTenantRole(
       RoleArn: roleArn,
       ExternalId: externalId,
       RoleSessionName: sessionName.slice(0, 64),
-      DurationSeconds: 900,
+      DurationSeconds: Math.min(Math.max(durationSeconds, 900), 3600),
     }),
   );
 

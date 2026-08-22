@@ -3,7 +3,8 @@ export type AppJobType =
   | "COMPARISON"
   | "TERRAFORM"
   | "APPLY"
-  | "ROLLBACK";
+  | "ROLLBACK"
+  | "DATA_TRANSFER";
 
 export type JobMessage = {
   type: AppJobType;

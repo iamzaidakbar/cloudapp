@@ -14,8 +14,18 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function getPrismaClient(): PrismaClient {
+  const existing = globalForPrisma.prisma;
+  // After `prisma generate` adds models, a cached Next.js global client can
+  // still be the pre-generate instance (delegates like transferRun missing).
+  if (existing && typeof (existing as { transferRun?: unknown }).transferRun !== "undefined") {
+    return existing;
+  }
+  const client = createPrismaClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = client;
+  }
+  return client;
 }
+
+export const prisma = getPrismaClient();

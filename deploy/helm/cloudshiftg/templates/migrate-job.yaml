@@ -22,6 +22,30 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: {{ .Values.serviceAccount.web.name }}
+      {{- if .Values.cloudsql.enabled }}
+      initContainers:
+        - name: cloud-sql-proxy
+          image: {{ .Values.cloudsql.proxyImage | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--structured-logs"
+            - "--private-ip"
+            - "--port=5432"
+            - {{ .Values.cloudsql.instanceConnectionName | quote }}
+          restartPolicy: Always
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+      {{- end }}
       containers:
         - name: migrate
           image: "{{ .Values.image.registry }}/worker:{{ .Values.image.workerTag }}"
@@ -42,18 +66,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.name }}
                   key: SESSION_SECRET
-            - name: CLOUDSQL_INSTANCE
-              value: {{ .Values.cloudsql.instanceConnectionName | quote }}
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -e
-              echo "Starting Cloud SQL Auth Proxy in-process..."
-              curl -fsSL -o /tmp/cloud-sql-proxy \
-                https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.linux.amd64
-              chmod +x /tmp/cloud-sql-proxy
-              /tmp/cloud-sql-proxy --private-ip --port=5432 "$CLOUDSQL_INSTANCE" &
-              PROXY_PID=$!
+              echo "Waiting for Cloud SQL Auth Proxy..."
               for i in $(seq 1 60); do
                 if node -e "const net=require('net');const s=net.connect(5432,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"; then
                   break
@@ -75,9 +92,6 @@ spec:
                   console.log('grants applied');
                 })().catch((e) => { console.error(e); process.exit(1); });
               "
-              echo "Stopping proxy..."
-              kill -TERM "$PROXY_PID" 2>/dev/null || true
-              wait "$PROXY_PID" 2>/dev/null || true
               echo "Migrate complete"
           resources:
             requests:

@@ -11,6 +11,7 @@ const TYPE_LABEL: Record<(typeof JOB_TYPES)[number], string> = {
   TERRAFORM: "Terraform",
   APPLY: "Apply",
   VERIFICATION: "Verification",
+  DATA_TRANSFER: "Data transfer",
   ROLLBACK: "Rollback",
 };
 

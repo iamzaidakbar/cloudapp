@@ -329,13 +329,14 @@ kubectl -n development scale deploy/cloudshiftg-worker --replicas=1
 
 ## Roadmap
 
-**Done on GKE `development`:** audit → compare → migrate → Terraform generate/plan → **Apply → Verify → Rollback** (GCS bucket E2E proven). Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
+**Done on GKE `development`:** audit → compare → migrate → Terraform → Apply → Verify → **Data transfer v1 (S3→GCS)** → Rollback. Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
 
 **Still pending:**
 
 | Item | Notes |
 |------|--------|
-| Data transfer / cutover | Unbuilt product slice (sidebar still 404) |
+| Broader data transfer | RDS / EC2 / Lambda (v1 is S3→GCS only) |
+| Traffic cutover | DNS / app flip — not in v1 |
 | GitHub Actions / CI polish | Workflow exists; harden and wire fully as needed |
 | Production cutover (Phase K) | Prod namespace, secrets, cutover decision vs Cloud Run |
 | Docs / CI finish (Phase L) | Runbooks beyond this README |

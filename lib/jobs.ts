@@ -36,6 +36,9 @@ export async function listJobs(
       SELECT id, 'APPLY'::text, version, status::text, "queuedAt", "startedAt", "finishedAt", "errorMessage", "migrationPlanId"
       FROM apply_runs WHERE "tenantId" = ${tenantId}
       UNION ALL
+      SELECT id, 'DATA_TRANSFER'::text, version, status::text, "queuedAt", "startedAt", "finishedAt", "errorMessage", "migrationPlanId"
+      FROM transfer_runs WHERE "tenantId" = ${tenantId}
+      UNION ALL
       SELECT id, 'ROLLBACK'::text, version, status::text, "queuedAt", "startedAt", "finishedAt", "errorMessage", "migrationPlanId"
       FROM rollback_runs WHERE "tenantId" = ${tenantId}
       UNION ALL

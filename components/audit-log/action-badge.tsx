@@ -19,6 +19,7 @@ const ACTION_TONE: Record<AdminActionTypeValue, StatusTone> = {
   TERRAFORM_GENERATED: "active",
   MIGRATION_APPLIED: "warning",
   VERIFICATION_RUN: "active",
+  DATA_TRANSFER_STARTED: "active",
   MIGRATION_ROLLED_BACK: "danger",
   TEAM_MEMBER_ADDED: "active",
 };

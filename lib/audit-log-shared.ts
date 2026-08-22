@@ -19,6 +19,7 @@ export const ADMIN_ACTION_TYPES = [
   "TERRAFORM_GENERATED",
   "MIGRATION_APPLIED",
   "VERIFICATION_RUN",
+  "DATA_TRANSFER_STARTED",
   "MIGRATION_ROLLED_BACK",
   "TEAM_MEMBER_ADDED",
 ] as const;
@@ -40,6 +41,7 @@ export const ADMIN_ACTION_LABEL: Record<AdminActionTypeValue, string> = {
   TERRAFORM_GENERATED: "Terraform Generated",
   MIGRATION_APPLIED: "Migration Applied",
   VERIFICATION_RUN: "Verification Run",
+  DATA_TRANSFER_STARTED: "Data Transfer Started",
   MIGRATION_ROLLED_BACK: "Migration Rolled Back",
   TEAM_MEMBER_ADDED: "Team Member Added",
 };

@@ -6,7 +6,15 @@
 // found: Can't resolve 'util/types'" (pg's Node-only internals) once the
 // filter bar imported these directly from lib/jobs.ts.
 
-export const JOB_TYPES = ["AUDIT", "COMPARISON", "TERRAFORM", "APPLY", "VERIFICATION", "ROLLBACK"] as const;
+export const JOB_TYPES = [
+  "AUDIT",
+  "COMPARISON",
+  "TERRAFORM",
+  "APPLY",
+  "VERIFICATION",
+  "DATA_TRANSFER",
+  "ROLLBACK",
+] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 export const JOB_STATUSES = ["QUEUED", "RUNNING", "SUCCEEDED", "FAILED", "CANCELLED"] as const;

@@ -5,6 +5,7 @@ import { getLatestTerraformRun } from "@/lib/terraform-runs";
 import { getLatestApplyRun } from "@/lib/apply-runs";
 import { getLatestVerificationRun } from "@/lib/verification-runs";
 import { getLatestRollbackRun } from "@/lib/rollback-runs";
+import { getLatestTransferRun } from "@/lib/transfer-runs";
 import { MigrationPlanHero } from "@/components/migrations/migration-plan-hero";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
@@ -13,6 +14,14 @@ import { MigrationExecutionPanels } from "@/components/migrations/migration-exec
 import { RollbackPanel } from "@/components/migrations/rollback-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+function serializeTransferRun<T extends { bytesCopied: bigint | null } | null>(run: T) {
+  if (!run) return null;
+  return {
+    ...run,
+    bytesCopied: run.bytesCopied == null ? null : run.bytesCopied.toString(),
+  };
+}
 
 export default async function MigrationPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,7 +38,13 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
       : null;
   const verificationRun =
     applyRun?.status === "SUCCEEDED" ? await getLatestVerificationRun(admin.tenantId, id) : null;
+  const transferRun =
+    applyRun?.status === "SUCCEEDED" ? await getLatestTransferRun(admin.tenantId, id) : null;
   const provisionedResources = plan.resources.filter((r) => r.gcpResourceSelfLink);
+  // S3 presence only — do not require gcpResourceSelfLink here. That link is
+  // written during Apply; requiring it at SSR hides the Transfer panel until
+  // a full refresh even after Apply polls SUCCEEDED client-side.
+  const hasS3TransferTargets = plan.resources.some((r) => r.awsService === "S3_BUCKET");
   const canRollback = isTenantAdmin && plan.status === "APPROVED" && provisionedResources.length > 0;
   const rollbackRun = canRollback ? await getLatestRollbackRun(admin.tenantId, id) : null;
 
@@ -87,7 +102,13 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
         </Alert>
       ) : null}
 
-      <MigrationResourcesTable resources={plan.resources} />
+      <MigrationResourcesTable
+        resources={plan.resources.map((r) => ({
+          ...r,
+          bytesTransferred:
+            r.bytesTransferred == null ? null : r.bytesTransferred.toString(),
+        }))}
+      />
 
       {isTenantAdmin && plan.status === "APPROVED" ? (
         <MigrationExecutionPanels
@@ -95,6 +116,8 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
           initialTerraformRun={terraformRun}
           initialApplyRun={applyRun}
           initialVerificationRun={verificationRun}
+          initialTransferRun={serializeTransferRun(transferRun)}
+          hasEligibleTransferResources={hasS3TransferTargets}
         />
       ) : null}
 

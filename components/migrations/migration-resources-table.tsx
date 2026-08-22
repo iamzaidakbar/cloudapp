@@ -25,10 +25,14 @@ export type MigrationResourceRow = {
   estimatedMigrationCost: string | number | null;
   gcpResourceSelfLink: string | null;
   provisionedAt: string | Date | null;
+  transferredAt: string | Date | null;
+  objectsTransferred: number | null;
+  bytesTransferred: string | number | bigint | null;
 };
 
 export function MigrationResourcesTable({ resources }: { resources: MigrationResourceRow[] }) {
   const anyProvisioned = resources.some((r) => r.provisionedAt);
+  const anyTransferred = resources.some((r) => r.transferredAt);
 
   return (
     <FadeIn delayMs={40}>
@@ -51,6 +55,7 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
                 <TableHead>GCP Target</TableHead>
                 <TableHead>Migration Cost</TableHead>
                 {anyProvisioned ? <TableHead>Provisioned</TableHead> : null}
+                {anyTransferred ? <TableHead>Transferred</TableHead> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -89,6 +94,25 @@ export function MigrationResourcesTable({ resources }: { resources: MigrationRes
                             </span>
                             <span className="text-xs text-muted-foreground">
                               <FormattedDateTime value={resource.provisionedAt} />
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </StaggerItem>
+                    </TableCell>
+                  ) : null}
+                  {anyTransferred ? (
+                    <TableCell>
+                      <StaggerItem index={index}>
+                        {resource.transferredAt ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs">
+                              {resource.objectsTransferred ?? 0} object
+                              {(resource.objectsTransferred ?? 0) === 1 ? "" : "s"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              <FormattedDateTime value={resource.transferredAt} />
                             </span>
                           </div>
                         ) : (

@@ -43,6 +43,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: TERRAFORM_JOB_IMAGE
               value: "{{ .Values.image.registry }}/terraform-job:{{ .Values.image.terraformJobTag }}"
+            - name: WORKER_JOB_IMAGE
+              value: "{{ .Values.image.registry }}/worker:{{ .Values.image.workerTag }}"
             - name: TERRAFORM_JOB_SERVICE_ACCOUNT
               value: {{ .Values.serviceAccount.terraformJob.name | quote }}
             {{- if .Values.cloudsql.enabled }}

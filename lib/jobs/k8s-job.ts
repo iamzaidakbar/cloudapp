@@ -2,11 +2,16 @@ import * as k8s from "@kubernetes/client-node";
 import type { JobMessage } from "@/lib/jobs/types";
 
 /**
- * Create a tenant-isolated Kubernetes Job for terraform / apply / rollback.
+ * Create a tenant-isolated Kubernetes Job for terraform / apply / rollback / data-transfer.
  * Requires in-cluster config (or KUBECONFIG) and JOB_IMAGE / namespace env.
  */
 export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
-  if (job.type !== "TERRAFORM" && job.type !== "APPLY" && job.type !== "ROLLBACK") {
+  if (
+    job.type !== "TERRAFORM" &&
+    job.type !== "APPLY" &&
+    job.type !== "ROLLBACK" &&
+    job.type !== "DATA_TRANSFER"
+  ) {
     throw new Error(`k8s-job runtime does not support ${job.type}`);
   }
 
@@ -14,9 +19,12 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
     process.env.K8S_NAMESPACE?.trim() ||
     process.env.POD_NAMESPACE?.trim() ||
     "development";
+  // DATA_TRANSFER prefers the worker image (AWS SDK + app, no Terraform CLI);
+  // falls back to the terraform-job image which also ships workers/main.ts.
   const image =
-    process.env.TERRAFORM_JOB_IMAGE?.trim() ||
-    process.env.JOB_IMAGE?.trim();
+    (job.type === "DATA_TRANSFER"
+      ? process.env.WORKER_JOB_IMAGE?.trim() || process.env.TERRAFORM_JOB_IMAGE?.trim()
+      : process.env.TERRAFORM_JOB_IMAGE?.trim()) || process.env.JOB_IMAGE?.trim();
   if (!image) {
     throw new Error("TERRAFORM_JOB_IMAGE (or JOB_IMAGE) is required for k8s-job runtime");
   }
@@ -29,7 +37,7 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
   }
 
   const batch = kc.makeApiClient(k8s.BatchV1Api);
-  const name = `${job.type.toLowerCase()}-${job.runId.slice(0, 8)}-${Date.now()
+  const name = `${job.type.toLowerCase().replaceAll("_", "")}-${job.runId.slice(0, 8)}-${Date.now()
     .toString(36)
     .slice(-4)}`.slice(0, 63);
 
@@ -40,6 +48,17 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
   const cloudSqlProxyImage =
     process.env.CLOUDSQL_PROXY_IMAGE?.trim() ||
     "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.3";
+
+  const secretEnv = (key: string, optional = true): k8s.V1EnvVar => ({
+    name: key,
+    valueFrom: {
+      secretKeyRef: {
+        name: "cloudshiftg-secrets",
+        key,
+        optional,
+      },
+    },
+  });
 
   const mainContainer: k8s.V1Container = {
     name: "terraform-job",
@@ -53,36 +72,12 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
         ? [{ name: "JOB_MIGRATION_PLAN_ID", value: job.migrationPlanId }]
         : []),
       { name: "GCP_PROJECT_ID", value: process.env.GCP_PROJECT_ID ?? "" },
-      {
-        name: "SESSION_SECRET",
-        valueFrom: {
-          secretKeyRef: {
-            name: "cloudshiftg-secrets",
-            key: "SESSION_SECRET",
-            optional: true,
-          },
-        },
-      },
-      {
-        name: "APP_DATABASE_URL",
-        valueFrom: {
-          secretKeyRef: {
-            name: "cloudshiftg-secrets",
-            key: "APP_DATABASE_URL",
-            optional: true,
-          },
-        },
-      },
-      {
-        name: "DATABASE_URL",
-        valueFrom: {
-          secretKeyRef: {
-            name: "cloudshiftg-secrets",
-            key: "DATABASE_URL",
-            optional: true,
-          },
-        },
-      },
+      secretEnv("SESSION_SECRET"),
+      secretEnv("APP_DATABASE_URL"),
+      secretEnv("DATABASE_URL"),
+      secretEnv("AWS_ACCESS_KEY_ID"),
+      secretEnv("AWS_SECRET_ACCESS_KEY"),
+      secretEnv("AWS_REGION"),
     ],
     resources: {
       requests: { cpu: "250m", memory: "512Mi" },

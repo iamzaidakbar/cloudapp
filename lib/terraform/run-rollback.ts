@@ -7,6 +7,7 @@ import { generateTerraformConfig } from "@/lib/terraform/generate";
 import { getTerraformSourceResources } from "@/lib/terraform-runs";
 import { slug } from "@/lib/terraform/generate";
 import { env } from "@/lib/env";
+import { emptyGcsBucket, gcsBucketNameFromSelfLink } from "@/lib/transfer/gcs-bucket";
 
 type TfStateResource = { type: string; name: string };
 type TfState = { resources?: TfStateResource[] };
@@ -67,11 +68,25 @@ export async function runRollback(rollbackRunId: string, tenantId: string): Prom
 
   let workDir: string | null = null;
   try {
+    // Empty GCS buckets that received transferred objects so terraform destroy
+    // can succeed with force_destroy = false.
+    for (const resource of resources) {
+      if (resource.awsService !== "S3_BUCKET" || !resource.gcpResourceSelfLink) continue;
+      if (!resource.transferredAt && !(resource.objectsTransferred && resource.objectsTransferred > 0)) {
+        continue;
+      }
+      const bucketName = gcsBucketNameFromSelfLink(resource.gcpResourceSelfLink);
+      if (!bucketName) continue;
+      await emptyGcsBucket(bucketName);
+    }
+
     workDir = await mkdtemp(path.join(tmpdir(), "cloudshiftg-rollback-"));
     await writeFile(path.join(workDir, "terraform.tfstate"), applyRun.terraformState, "utf8");
 
     const sourceResources = await getTerraformSourceResources(tenantId, rollbackRun.migrationPlanId);
-    const terraformConfig = generateTerraformConfig(sourceResources, env.GCP_PROJECT_ID, { disableDeletionProtection: true });
+    const terraformConfig = generateTerraformConfig(sourceResources, env.GCP_PROJECT_ID, {
+      disableDeletionProtection: true,
+    });
     await writeFile(path.join(workDir, "main.tf"), terraformConfig, "utf8");
 
     const init = await terraformInit(workDir);
@@ -79,12 +94,6 @@ export async function runRollback(rollbackRunId: string, tenantId: string): Prom
       throw new Error(`terraform init failed: ${init.output.slice(0, 1000)}`);
     }
 
-    // Cloud SQL instances are generated with deletion_protection = true (a
-    // real GCP/Terraform safety default) — destroy fails outright against a
-    // protected instance. The config just written already has that flag
-    // flipped off; applying it first only updates that one field in place
-    // (state already matches everywhere else, so nothing is recreated)
-    // before destroy runs — the same two-step a human operator would do.
     const hasProtectedRds = resources.some((r) => r.awsService === "RDS_INSTANCE" && r.gcpResourceSelfLink);
     if (hasProtectedRds) {
       const prepare = await terraformApply(workDir);
@@ -102,12 +111,18 @@ export async function runRollback(rollbackRunId: string, tenantId: string): Prom
       for (const resource of resources) {
         if (!resource.gcpResourceSelfLink) continue;
         const address = slug(resource.awsResourceId);
-        if (remainingAddresses.has(address)) continue; // destroy failed for this one — leave it tracked as real
+        if (remainingAddresses.has(address)) continue;
 
         resourcesDestroyed += 1;
         await tx.migrationResource.update({
           where: { id: resource.id },
-          data: { gcpResourceSelfLink: null, provisionedAt: null },
+          data: {
+            gcpResourceSelfLink: null,
+            provisionedAt: null,
+            transferredAt: null,
+            objectsTransferred: null,
+            bytesTransferred: null,
+          },
         });
       }
 

@@ -67,6 +67,7 @@ model Tenant {
   applyRuns      ApplyRun[]
   verificationRuns VerificationRun[]
   rollbackRuns   RollbackRun[]
+  transferRuns   TransferRun[]
 
   @@map("tenants")
 }
@@ -377,6 +378,7 @@ model MigrationPlan {
   applyRuns     ApplyRun[]
   verificationRuns VerificationRun[]
   rollbackRuns  RollbackRun[]
+  transferRuns  TransferRun[]
 
   @@unique([tenantId, sequenceNumber])
   @@index([tenantId, status])
@@ -404,6 +406,11 @@ model MigrationResource {
   // the real live GCP resource, not a synthetic status enum.
   gcpResourceSelfLink String?
   provisionedAt       DateTime?
+
+  // Populated after a successful TransferRun for S3→GCS object copy (v1).
+  transferredAt       DateTime?
+  objectsTransferred  Int?
+  bytesTransferred    BigInt?
 
   createdAt DateTime @default(now())
 
@@ -551,6 +558,44 @@ model VerificationCheck {
   @@map("verification_checks")
 }
 
+enum TransferRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+// S3 → GCS object copy for provisioned MigrationResources (data-transfer v1).
+// Does not change MigrationPlan.status — success is recorded on this run and
+// on per-resource transferredAt / objectsTransferred / bytesTransferred.
+model TransferRun {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  migrationPlanId String
+  migrationPlan   MigrationPlan @relation(fields: [migrationPlanId], references: [id], onDelete: Cascade)
+
+  version Int
+  status  TransferRunStatus @default(QUEUED)
+
+  queuedAt     DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+
+  objectsCopied    Int?
+  bytesCopied      BigInt?
+  // Non-S3 or unprovisioned resources skipped in this run (service + reason).
+  skippedResources Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([migrationPlanId, version])
+  @@index([tenantId, status])
+  @@map("transfer_runs")
+}
+
 enum RollbackRunStatus {
   QUEUED
   RUNNING
@@ -604,6 +649,7 @@ enum AdminActionType {
   TERRAFORM_GENERATED
   MIGRATION_APPLIED
   VERIFICATION_RUN
+  DATA_TRANSFER_STARTED
   MIGRATION_ROLLED_BACK
   TEAM_MEMBER_ADDED
 }
