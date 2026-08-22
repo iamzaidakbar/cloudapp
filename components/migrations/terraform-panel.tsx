@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { RUN_STATUS_CLASS } from "@/lib/run-status";
 import type { TerraformRunStatus } from "@/lib/generated/prisma/client";
 
-type TerraformRun = {
+export type TerraformRunSummary = {
   id: string;
   version: number;
   status: TerraformRunStatus;
@@ -28,12 +28,16 @@ type TerraformRun = {
 };
 
 const TERMINAL_STATUSES = new Set<TerraformRunStatus>(["SUCCEEDED", "FAILED"]);
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 2500;
 
 function validateDiagnostics(validateOutput: string): string[] {
   try {
-    const parsed = JSON.parse(validateOutput) as { diagnostics?: Array<{ summary?: string; address?: string }> };
-    return (parsed.diagnostics ?? []).map((d) => (d.address ? `${d.address}: ${d.summary}` : d.summary ?? "")).filter(Boolean);
+    const parsed = JSON.parse(validateOutput) as {
+      diagnostics?: Array<{ summary?: string; address?: string }>;
+    };
+    return (parsed.diagnostics ?? [])
+      .map((d) => (d.address ? `${d.address}: ${d.summary}` : d.summary ?? ""))
+      .filter(Boolean);
   } catch {
     return [validateOutput];
   }
@@ -42,45 +46,64 @@ function validateDiagnostics(validateOutput: string): string[] {
 export function TerraformPanel({
   migrationPlanId,
   initialTerraformRun,
+  onRunChange,
 }: {
   migrationPlanId: string;
-  initialTerraformRun: TerraformRun | null;
+  initialTerraformRun: TerraformRunSummary | null;
+  onRunChange?: (run: TerraformRunSummary | null) => void;
 }) {
   const [run, setRun] = useState(initialTerraformRun);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cancelledRef = useRef(false);
+  const onRunChangeRef = useRef(onRunChange);
+  onRunChangeRef.current = onRunChange;
 
-  const isActive = run ? !TERMINAL_STATUSES.has(run.status) : false;
+  const isActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
+
+  function commitRun(next: TerraformRunSummary | null) {
+    setRun(next);
+    onRunChangeRef.current?.(next);
+  }
 
   useEffect(() => {
     if (!isActive) return;
 
-    cancelledRef.current = false;
-    const interval = setInterval(async () => {
-      const response = await fetch(`/api/migrations/${migrationPlanId}/terraform`);
-      if (!response.ok || cancelledRef.current) return;
+    let cancelled = false;
 
-      const body = await response.json();
-      if (!body.success || cancelledRef.current) return;
+    async function poll() {
+      try {
+        const response = await fetch(`/api/migrations/${migrationPlanId}/terraform`, {
+          cache: "no-store",
+        });
+        if (!response.ok || cancelled) return;
 
-      setRun(body.data.terraformRun);
-      if (!body.data.terraformRun || TERMINAL_STATUSES.has(body.data.terraformRun.status)) {
-        clearInterval(interval);
+        const body = await response.json();
+        if (!body.success || cancelled) return;
+
+        commitRun(body.data.terraformRun);
+      } catch {
+        // Transient network errors — retry on the next interval.
       }
-    }, POLL_INTERVAL_MS);
+    }
+
+    void poll();
+    const interval = setInterval(() => void poll(), POLL_INTERVAL_MS);
 
     return () => {
-      cancelledRef.current = true;
+      cancelled = true;
       clearInterval(interval);
     };
-  }, [migrationPlanId, isActive]);
+    // Re-subscribe when a new run starts or leaves a terminal state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [migrationPlanId, isActive, run?.id]);
 
   async function handleGenerate() {
     setIsStarting(true);
     setError(null);
 
-    const response = await fetch(`/api/migrations/${migrationPlanId}/terraform`, { method: "POST" });
+    const response = await fetch(`/api/migrations/${migrationPlanId}/terraform`, {
+      method: "POST",
+    });
     const body = await response.json();
 
     if (!response.ok || !body.success) {
@@ -89,7 +112,7 @@ export function TerraformPanel({
       return;
     }
 
-    setRun(body.data.terraformRun);
+    commitRun(body.data.terraformRun);
     setIsStarting(false);
   }
 
@@ -99,9 +122,16 @@ export function TerraformPanel({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 md:px-5">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-sm font-semibold tracking-tight">Terraform</h2>
-            <p className="text-xs text-muted-foreground">Generate and validate infrastructure as code</p>
+            <p className="text-xs text-muted-foreground">
+              Generate and validate infrastructure as code
+            </p>
           </div>
-          <Button type="button" onClick={handleGenerate} disabled={isStarting || isActive} variant={run ? "outline" : "default"}>
+          <Button
+            type="button"
+            onClick={handleGenerate}
+            disabled={isStarting || isActive}
+            variant={run ? "outline" : "default"}
+          >
             {isStarting || isActive ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
@@ -128,10 +158,19 @@ export function TerraformPanel({
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>Run #{run.version}</span>
                 <StatusTransition statusKey={run.status}>
-                  <Badge variant="outline" className={cn("border-transparent", RUN_STATUS_CLASS[run.status])}>
+                  <Badge
+                    variant="outline"
+                    className={cn("border-transparent", RUN_STATUS_CLASS[run.status])}
+                  >
                     {run.status}
                   </Badge>
                 </StatusTransition>
+                {isActive ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs">
+                    <Loader2 className="size-3 animate-spin" />
+                    Updating live…
+                  </span>
+                ) : null}
                 {run.finishedAt ? (
                   <span>
                     · Finished <FormattedDateTime value={run.finishedAt} />
@@ -146,19 +185,27 @@ export function TerraformPanel({
               ) : null}
 
               <div className="flex flex-col gap-1">
-                <p className="text-xs font-medium text-muted-foreground">Generated configuration (main.tf)</p>
-                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.terraformConfig}</pre>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Generated configuration (main.tf)
+                </p>
+                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">
+                  {run.terraformConfig}
+                </pre>
               </div>
 
               {run.validateSucceeded !== null ? (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 text-sm">
                     {run.validateSucceeded ? (
-                      <CheckCircle2 className="size-4 text-foreground" />
+                      <CheckCircle2 className="size-4 text-success" />
                     ) : (
                       <XCircle className="size-4 text-destructive" />
                     )}
-                    <span>{run.validateSucceeded ? "terraform validate passed" : "terraform validate failed"}</span>
+                    <span>
+                      {run.validateSucceeded
+                        ? "terraform validate passed"
+                        : "terraform validate failed"}
+                    </span>
                   </div>
                   {!run.validateSucceeded && run.validateOutput ? (
                     <ul className="list-disc pl-6 text-xs text-destructive">
@@ -170,20 +217,27 @@ export function TerraformPanel({
                     </ul>
                   ) : null}
                 </div>
+              ) : isActive ? (
+                <p className="text-xs text-muted-foreground">Waiting for validate / plan…</p>
               ) : null}
 
               {run.planSucceeded ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-medium text-muted-foreground">
-                    terraform plan — {run.resourcesToCreate ?? 0} resource{run.resourcesToCreate === 1 ? "" : "s"} would be created
-                    (read-only dry run against your real GCP project — nothing was created)
+                    terraform plan — {run.resourcesToCreate ?? 0} resource
+                    {run.resourcesToCreate === 1 ? "" : "s"} would be created (read-only dry run
+                    against your real GCP project — nothing was created)
                   </p>
-                  <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
+                  <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">
+                    {run.planOutput}
+                  </pre>
                 </div>
               ) : run.planOutput ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-xs font-medium text-destructive">terraform plan failed</p>
-                  <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.planOutput}</pre>
+                  <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">
+                    {run.planOutput}
+                  </pre>
                 </div>
               ) : null}
             </div>

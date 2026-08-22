@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,6 @@ export function RollbackPanel({
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
-  const cancelledRef = useRef(false);
 
   const isActive = run ? !TERMINAL_STATUSES.has(run.status) : false;
   const confirmed = confirmText.trim() === String(sequenceNumber);
@@ -58,25 +57,32 @@ export function RollbackPanel({
   useEffect(() => {
     if (!isActive) return;
 
-    cancelledRef.current = false;
-    const interval = setInterval(async () => {
-      const response = await fetch(`/api/migrations/${migrationPlanId}/rollback`);
-      if (!response.ok || cancelledRef.current) return;
+    let cancelled = false;
 
-      const body = await response.json();
-      if (!body.success || cancelledRef.current) return;
+    async function poll() {
+      try {
+        const response = await fetch(`/api/migrations/${migrationPlanId}/rollback`, {
+          cache: "no-store",
+        });
+        if (!response.ok || cancelled) return;
 
-      setRun(body.data.rollbackRun);
-      if (!body.data.rollbackRun || TERMINAL_STATUSES.has(body.data.rollbackRun.status)) {
-        clearInterval(interval);
+        const body = await response.json();
+        if (!body.success || cancelled) return;
+
+        setRun(body.data.rollbackRun);
+      } catch {
+        // Transient network errors — retry on the next interval.
       }
-    }, POLL_INTERVAL_MS);
+    }
+
+    void poll();
+    const interval = setInterval(() => void poll(), POLL_INTERVAL_MS);
 
     return () => {
-      cancelledRef.current = true;
+      cancelled = true;
       clearInterval(interval);
     };
-  }, [migrationPlanId, isActive]);
+  }, [migrationPlanId, isActive, run?.id]);
 
   async function handleDestroy() {
     setIsStarting(true);

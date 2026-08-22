@@ -9,9 +9,7 @@ import { MigrationPlanHero } from "@/components/migrations/migration-plan-hero";
 import { MigrationSummaryCards } from "@/components/migrations/migration-summary-cards";
 import { MigrationResourcesTable } from "@/components/migrations/migration-resources-table";
 import { PlanActions } from "@/components/migrations/plan-actions";
-import { TerraformPanel } from "@/components/migrations/terraform-panel";
-import { ApplyPanel } from "@/components/migrations/apply-panel";
-import { VerificationPanel } from "@/components/migrations/verification-panel";
+import { MigrationExecutionPanels } from "@/components/migrations/migration-execution-panels";
 import { RollbackPanel } from "@/components/migrations/rollback-panel";
 import { FormattedDateTime } from "@/components/shared/formatted-date-time";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,8 +24,9 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
   const isTenantAdmin = admin.role === "TENANT_ADMIN";
   const terraformRun = plan.status === "APPROVED" ? await getLatestTerraformRun(admin.tenantId, id) : null;
   const applyRun =
-    terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded ? await getLatestApplyRun(admin.tenantId, id) : null;
-  const canExecute = isTenantAdmin && terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded === true;
+    terraformRun?.status === "SUCCEEDED" && terraformRun.planSucceeded
+      ? await getLatestApplyRun(admin.tenantId, id)
+      : null;
   const verificationRun =
     applyRun?.status === "SUCCEEDED" ? await getLatestVerificationRun(admin.tenantId, id) : null;
   const provisionedResources = plan.resources.filter((r) => r.gcpResourceSelfLink);
@@ -91,13 +90,12 @@ export default async function MigrationPlanPage({ params }: { params: Promise<{ 
       <MigrationResourcesTable resources={plan.resources} />
 
       {isTenantAdmin && plan.status === "APPROVED" ? (
-        <TerraformPanel migrationPlanId={plan.id} initialTerraformRun={terraformRun} />
-      ) : null}
-
-      {canExecute ? <ApplyPanel migrationPlanId={plan.id} initialApplyRun={applyRun} /> : null}
-
-      {isTenantAdmin && applyRun?.status === "SUCCEEDED" ? (
-        <VerificationPanel migrationPlanId={plan.id} initialVerificationRun={verificationRun} />
+        <MigrationExecutionPanels
+          migrationPlanId={plan.id}
+          initialTerraformRun={terraformRun}
+          initialApplyRun={applyRun}
+          initialVerificationRun={verificationRun}
+        />
       ) : null}
 
       {canRollback ? (

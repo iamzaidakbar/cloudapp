@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { RUN_STATUS_CLASS } from "@/lib/run-status";
 import type { ApplyRunStatus } from "@/lib/generated/prisma/client";
 
-type ApplyRun = {
+export type ApplyRunSummary = {
   id: string;
   version: number;
   status: ApplyRunStatus;
@@ -23,38 +23,60 @@ type ApplyRun = {
 };
 
 const TERMINAL_STATUSES = new Set<ApplyRunStatus>(["SUCCEEDED", "FAILED"]);
-const POLL_INTERVAL_MS = 3000;
+const POLL_INTERVAL_MS = 2500;
 
-export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlanId: string; initialApplyRun: ApplyRun | null }) {
+export function ApplyPanel({
+  migrationPlanId,
+  initialApplyRun,
+  onRunChange,
+}: {
+  migrationPlanId: string;
+  initialApplyRun: ApplyRunSummary | null;
+  onRunChange?: (run: ApplyRunSummary | null) => void;
+}) {
   const [run, setRun] = useState(initialApplyRun);
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cancelledRef = useRef(false);
+  const onRunChangeRef = useRef(onRunChange);
+  onRunChangeRef.current = onRunChange;
 
-  const isActive = run ? !TERMINAL_STATUSES.has(run.status) : false;
+  const isActive = Boolean(run && !TERMINAL_STATUSES.has(run.status));
+
+  function commitRun(next: ApplyRunSummary | null) {
+    setRun(next);
+    onRunChangeRef.current?.(next);
+  }
 
   useEffect(() => {
     if (!isActive) return;
 
-    cancelledRef.current = false;
-    const interval = setInterval(async () => {
-      const response = await fetch(`/api/migrations/${migrationPlanId}/apply`);
-      if (!response.ok || cancelledRef.current) return;
+    let cancelled = false;
 
-      const body = await response.json();
-      if (!body.success || cancelledRef.current) return;
+    async function poll() {
+      try {
+        const response = await fetch(`/api/migrations/${migrationPlanId}/apply`, {
+          cache: "no-store",
+        });
+        if (!response.ok || cancelled) return;
 
-      setRun(body.data.applyRun);
-      if (!body.data.applyRun || TERMINAL_STATUSES.has(body.data.applyRun.status)) {
-        clearInterval(interval);
+        const body = await response.json();
+        if (!body.success || cancelled) return;
+
+        commitRun(body.data.applyRun);
+      } catch {
+        // Transient network errors — retry on the next interval.
       }
-    }, POLL_INTERVAL_MS);
+    }
+
+    void poll();
+    const interval = setInterval(() => void poll(), POLL_INTERVAL_MS);
 
     return () => {
-      cancelledRef.current = true;
+      cancelled = true;
       clearInterval(interval);
     };
-  }, [migrationPlanId, isActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [migrationPlanId, isActive, run?.id]);
 
   async function handleExecute() {
     setIsStarting(true);
@@ -69,7 +91,7 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
       return;
     }
 
-    setRun(body.data.applyRun);
+    commitRun(body.data.applyRun);
     setIsStarting(false);
   }
 
@@ -103,8 +125,9 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
 
         <div className="flex flex-col gap-3 p-4 md:p-5">
           <p className="text-xs text-muted-foreground">
-            This runs a real <code className="font-mono">terraform apply</code> against your real GCP project — it creates
-            actual, billable resources. Nothing is created until you click the button above.
+            This runs a real <code className="font-mono">terraform apply</code> against your real GCP
+            project — it creates actual, billable resources. Nothing is created until you click the
+            button above.
           </p>
 
           {error ? (
@@ -118,10 +141,19 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
               <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span>Apply #{run.version}</span>
                 <StatusTransition statusKey={run.status}>
-                  <Badge variant="outline" className={cn("border-transparent", RUN_STATUS_CLASS[run.status])}>
+                  <Badge
+                    variant="outline"
+                    className={cn("border-transparent", RUN_STATUS_CLASS[run.status])}
+                  >
                     {run.status}
                   </Badge>
                 </StatusTransition>
+                {isActive ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs">
+                    <Loader2 className="size-3 animate-spin" />
+                    Updating live…
+                  </span>
+                ) : null}
                 {run.finishedAt ? (
                   <span>
                     · Finished <FormattedDateTime value={run.finishedAt} />
@@ -137,13 +169,16 @@ export function ApplyPanel({ migrationPlanId, initialApplyRun }: { migrationPlan
 
               {run.status === "SUCCEEDED" ? (
                 <p className="text-sm text-foreground">
-                  {run.resourcesCreated ?? 0} resource{run.resourcesCreated === 1 ? "" : "s"} provisioned for real — see the
-                  resource table above for each one&apos;s live GCP identifier.
+                  {run.resourcesCreated ?? 0} resource
+                  {run.resourcesCreated === 1 ? "" : "s"} provisioned for real — see the resource
+                  table above for each one&apos;s live GCP identifier.
                 </p>
               ) : null}
 
               {run.applyOutput ? (
-                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">{run.applyOutput}</pre>
+                <pre className="max-h-96 overflow-auto border border-border bg-muted/40 p-3 font-mono text-xs">
+                  {run.applyOutput}
+                </pre>
               ) : null}
             </div>
           ) : null}

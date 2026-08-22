@@ -44,6 +44,7 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
   const mainContainer: k8s.V1Container = {
     name: "terraform-job",
     image,
+    imagePullPolicy: "Always",
     env: [
       { name: "JOB_TYPE", value: job.type },
       { name: "JOB_RUN_ID", value: job.runId },
@@ -52,6 +53,16 @@ export async function createTerraformK8sJob(job: JobMessage): Promise<void> {
         ? [{ name: "JOB_MIGRATION_PLAN_ID", value: job.migrationPlanId }]
         : []),
       { name: "GCP_PROJECT_ID", value: process.env.GCP_PROJECT_ID ?? "" },
+      {
+        name: "SESSION_SECRET",
+        valueFrom: {
+          secretKeyRef: {
+            name: "cloudshiftg-secrets",
+            key: "SESSION_SECRET",
+            optional: true,
+          },
+        },
+      },
       {
         name: "APP_DATABASE_URL",
         valueFrom: {

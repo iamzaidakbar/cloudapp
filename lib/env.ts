@@ -3,9 +3,12 @@ import { z } from "zod";
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   APP_DATABASE_URL: z.string().min(1, "APP_DATABASE_URL is required"),
+  // Jobs don't use sessions; allow a placeholder when JOB_TYPE is set so
+  // terraform/apply/rollback containers can boot without SESSION_SECRET.
   SESSION_SECRET: z
     .string()
-    .min(32, "SESSION_SECRET must be at least 32 characters"),
+    .min(32, "SESSION_SECRET must be at least 32 characters")
+    .optional(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_SESSION_TOKEN: z.string().optional(),
@@ -19,7 +22,7 @@ const envSchema = z.object({
   K8S_NAMESPACE: z.string().optional(),
 });
 
-export const env = envSchema.parse({
+const parsed = envSchema.parse({
   DATABASE_URL: process.env.DATABASE_URL,
   APP_DATABASE_URL: process.env.APP_DATABASE_URL,
   SESSION_SECRET: process.env.SESSION_SECRET,
@@ -35,3 +38,15 @@ export const env = envSchema.parse({
   TERRAFORM_JOB_IMAGE: process.env.TERRAFORM_JOB_IMAGE,
   K8S_NAMESPACE: process.env.K8S_NAMESPACE,
 });
+
+if (!process.env.JOB_TYPE) {
+  if (!parsed.SESSION_SECRET || parsed.SESSION_SECRET.length < 32) {
+    throw new Error("SESSION_SECRET must be at least 32 characters");
+  }
+}
+
+export const env = {
+  ...parsed,
+  SESSION_SECRET:
+    parsed.SESSION_SECRET ?? "job-runner-placeholder-session-secret-32ch",
+};

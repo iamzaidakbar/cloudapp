@@ -32,7 +32,10 @@ export async function reconcileStaleApplyRuns(tenantId: string, staleAfterMs = 3
 
 export async function reconcileStaleTerraformRuns(tenantId: string, staleAfterMs = 20 * 60 * 1000) {
   const staleBefore = new Date(Date.now() - staleAfterMs);
-  const queuedBefore = new Date(Date.now() - 5 * 60 * 1000);
+  // Autopilot may sit Pending for a long time while scaling (or failing quota).
+  // Keep this above typical cold-start + terraform init/plan (~1–5 min), but
+  // below abandoned-job territory.
+  const queuedBefore = new Date(Date.now() - 15 * 60 * 1000);
 
   await withTenantContext(tenantId, async (tx) => {
     await tx.terraformRun.updateMany({
@@ -54,7 +57,8 @@ export async function reconcileStaleTerraformRuns(tenantId: string, staleAfterMs
       data: {
         status: "FAILED",
         finishedAt: new Date(),
-        errorMessage: "Terraform run was never claimed by a worker or Job (queued too long).",
+        errorMessage:
+          "Terraform Job never started (still queued). On Autopilot the pod is often Pending — check cluster capacity or GCE quota (SSD/CPU), then regenerate.",
       },
     });
   });

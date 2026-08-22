@@ -1,13 +1,16 @@
 import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-// The persistent provider plugin cache — `terraform init` reuses downloaded
-// provider binaries across runs instead of re-fetching ~30MB every time a
-// migration plan's Terraform is (re)generated. Gitignored (see .gitignore).
-const PLUGIN_CACHE_DIR = path.join(process.cwd(), ".terraform-plugin-cache");
+// Prefer a writable cache dir. In K8s Jobs the process runs as non-root under
+// /app, so default to os.tmpdir() instead of process.cwd().
+const PLUGIN_CACHE_DIR =
+  process.env.TF_PLUGIN_CACHE_DIR?.trim() ||
+  path.join(tmpdir(), "cloudshiftg-tf-plugin-cache");
 
 type CliResult = { success: boolean; output: string };
 
@@ -20,6 +23,7 @@ type CliResult = { success: boolean; output: string };
 // typed confirmation (the plan's sequence number) matched server-side.
 async function run(cwd: string, args: string[], allowedExitCodes: number[] = [0]): Promise<CliResult> {
   try {
+    mkdirSync(PLUGIN_CACHE_DIR, { recursive: true });
     const { stdout } = await execFileAsync("terraform", args, {
       cwd,
       env: { ...process.env, TF_IN_AUTOMATION: "true", TF_PLUGIN_CACHE_DIR: PLUGIN_CACHE_DIR },
