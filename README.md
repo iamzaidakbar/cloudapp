@@ -329,15 +329,16 @@ kubectl -n development scale deploy/cloudshiftg-worker --replicas=1
 
 ## Roadmap
 
-**Done on GKE `development`:** audit → compare → migrate → Terraform → Apply → Verify → **Data transfer v1 (S3→GCS)** → Rollback. Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
+**Done on GKE `development`:** audit → compare → migrate → Terraform → Apply → Verify → Data transfer v1 (S3→GCS) → Rollback. Access via port-forward (Cloudflare Quick Tunnel optional). Staging chart uses worker `0` (SSD quota Strategy B). Ingress/custom domain deferred (no paid DNS).
 
 **Still pending:**
 
 | Item | Notes |
 |------|--------|
-| Broader data transfer | RDS / EC2 / Lambda (v1 is S3→GCS only) |
-| Traffic cutover | DNS / app flip — not in v1 |
-| GitHub Actions / CI polish | Workflow exists; harden and wire fully as needed |
-| Production cutover (Phase K) | Prod namespace, secrets, cutover decision vs Cloud Run |
+| RDS → Cloud SQL transfer | Next — dump/restore after S3→GCS v1 |
+| EC2 / Lambda transfer | After RDS |
+| Traffic cutover | DNS / app flip |
+| GitHub Actions / CI polish | Workflow exists; harden as needed |
+| Production cutover (Phase K) | Prod namespace, secrets, GKE vs Cloud Run |
 | Docs / CI finish (Phase L) | Runbooks beyond this README |
-| Public URL | Paid domain + Ingress (or stable tunnel) — deferred |
+| Public URL | Paid domain + Ingress — deferred |
